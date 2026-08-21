@@ -6,7 +6,7 @@
   <title>拼字小特工 · Spelling Agent</title>
   <link rel="stylesheet" href="css/styles.css">
   <style>
-    /* 簡單的登入畫面樣式美化 */
+    /* 登入畫面樣式美化 */
     #login-box {
       max-width: 400px;
       margin: 100px auto;
@@ -53,78 +53,10 @@
     <button onclick="checkLogin()">登入</button>
   </div>
 
-  <!-- ==================== 2. 遊戲主畫面（預設隱藏，登入成功後才會顯示） ==================== -->
-  <div id="game-app-container" style="display: none;">
-    <canvas id="fx"></canvas>
-    <div class="app">
-      <header>
-        <div class="logo">拼</div>
-        <div class="title">
-          <h1>拼字小特工 <span style="font-size:13px;color:var(--ink3)">Spelling Agent</span></h1>
-          <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
-        </div>
-        <div class="stats">
-          <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
-          <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
-          <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
-          <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
-        </div>
-      </header>
+  <!-- ==================== 2. 遊戲主畫面容器（登入成功後才會動態放入遊戲 HTML） ==================== -->
+  <div id="game-app-container"></div>
 
-      <!-- ============ PLAY SCREEN ============ -->
-      <div id="screen-play">
-        <div class="session" id="session"></div>
-        <nav class="levelbar" id="levelbar" aria-label="選擇關卡"></nav>
-        <div class="modes" id="modes" role="tablist" aria-label="練習模式"></div>
-        <main class="card" id="card">
-          <div class="prompt-row">
-            <span class="catlabel" id="catlabel">關卡</span>
-            <span class="modehint" id="modehint"></span>
-          </div>
-          <div class="zh" id="zh"></div>
-          <div class="sent" id="sent"></div>
-          <div class="stage" id="stage"></div>
-          <div class="feedback" id="feedback"></div>
-          <div class="actions">
-            <button class="btn ghost" id="peekBtn" title="偷看一下答案">👀 偷看</button>
-            <button class="btn primary" id="checkBtn">檢查 Check</button>
-          </div>
-        </main>
-        <div class="banner" id="banner"></div>
-        <section class="progress">
-          <h3><span>學習進度 Progress</span> <span style="display:flex;gap:14px">
-            <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
-            <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
-            <a id="resetBtn" title="清除所有進度">重來 reset</a>
-          </span></h3>
-          <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
-          <div class="legend">
-            <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
-            <span title="連續答對 2 次"><i style="background:#B9E8D3"></i>練習中 <b id="n-prac" class="tnum">0</b></span>
-            <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
-            <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
-          </div>
-          <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
-        </section>
-        <section class="summary" id="summary" hidden></section>
-        <p class="foot">
-          🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
-          方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
-        </p>
-      </div>
-
-      <!-- ============ QUIZ SCREEN (placement / challenge) ============ -->
-      <div id="screen-quiz" hidden>
-        <main class="card quizcard">
-          <div class="quizhead" id="quizhead"></div>
-          <div class="quizprog"><i id="quizprog-bar"></i></div>
-          <div class="stage" id="quizstage"></div>
-        </main>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============ 3. 登入與同步邏輯 ============ -->
+  <!-- ==================== 3. 登入與雲端同步邏輯 ==================== -->
   <script>
     let currentUsername = "";
     const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec";
@@ -154,18 +86,90 @@
         if (result.success) {
           currentUsername = user;
 
+          // 把雲端抓到的進度寫入 localStorage
           if (result.progress) {
             localStorage.setItem(STORE_KEY, result.progress);
           }
 
-          alert("登入成功！");
+          // 1. 隱藏登入框
           document.getElementById("login-box").style.display = "none";
-          document.getElementById("game-app-container").style.display = "block";
 
-          // 登入成功後載入主程式模組
-          loadGameScript();
+          // 2. 動態把原本遊戲完整的 HTML 結構注入到容器中
+          document.getElementById("game-app-container").innerHTML = `
+            <canvas id="fx"></canvas>
+            <div class="app">
+              <header>
+                <div class="logo">拼</div>
+                <div class="title">
+                  <h1>拼字小特工 <span style="font-size:13px;color:var(--ink3)">Spelling Agent</span></h1>
+                  <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
+                </div>
+                <div class="stats">
+                  <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
+                  <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
+                  <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
+                  <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
+                </div>
+              </header>
 
-          // 每 10 秒自動同步目前的遊戲進度到雲端專屬分頁
+              <div id="screen-play">
+                <div class="session" id="session"></div>
+                <nav class="levelbar" id="levelbar" aria-label="選擇關卡"></nav>
+                <div class="modes" id="modes" role="tablist" aria-label="練習模式"></div>
+                <main class="card" id="card">
+                  <div class="prompt-row">
+                    <span class="catlabel" id="catlabel">關卡</span>
+                    <span class="modehint" id="modehint"></span>
+                  </div>
+                  <div class="zh" id="zh"></div>
+                  <div class="sent" id="sent"></div>
+                  <div class="stage" id="stage"></div>
+                  <div class="feedback" id="feedback"></div>
+                  <div class="actions">
+                    <button class="btn ghost" id="peekBtn" title="偷看一下答案">👀 偷看</button>
+                    <button class="btn primary" id="checkBtn">檢查 Check</button>
+                  </div>
+                </main>
+                <div class="banner" id="banner"></div>
+                <section class="progress">
+                  <h3><span>學習進度 Progress</span> <span style="display:flex;gap:14px">
+                    <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
+                    <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
+                    <a id="resetBtn" title="清除所有進度">重來 reset</a>
+                  </span></h3>
+                  <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
+                  <div class="legend">
+                    <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
+                    <span title="連續答對 2 次"><i style="background:#B9E8D3"></i>練習中 <b id="n-prac" class="tnum">0</b></span>
+                    <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
+                    <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
+                  </div>
+                  <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
+                </section>
+                <section class="summary" id="summary" hidden></section>
+                <p class="foot">
+                  🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
+                  方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
+                </p>
+              </div>
+
+              <div id="screen-quiz" hidden>
+                <main class="card quizcard">
+                  <div class="quizhead" id="quizhead"></div>
+                  <div class="quizprog"><i id="quizprog-bar"></i></div>
+                  <div class="stage" id="quizstage"></div>
+                </main>
+              </div>
+            </div>
+          `;
+
+          // 3. 載入遊戲主程式模組
+          const script = document.createElement("script");
+          script.type = "module";
+          script.src = "src/app.js";
+          document.body.appendChild(script);
+
+          // 4. 每 10 秒自動同步目前的遊戲進度到雲端專屬分頁
           setInterval(autoSaveProgressToCloud, 10000);
 
         } else {
@@ -179,16 +183,6 @@
         loginBtn.innerText = "登入";
         loginBtn.disabled = false;
       }
-    }
-
-    // 動態載入遊戲模組，避免未登入時提早執行而出錯
-    function loadGameScript() {
-      if (document.getElementById("game-main-script")) return;
-      const script = document.createElement("script");
-      script.id = "game-main-script";
-      script.type = "module";
-      script.src = "src/app.js";
-      document.body.appendChild(script);
     }
 
     async function autoSaveProgressToCloud() {
