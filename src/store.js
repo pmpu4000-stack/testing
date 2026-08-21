@@ -1,12 +1,57 @@
-// ===================================================================== // store.js — 完整雲端同步版 // ===================================================================== 
+// ===================================================================== // store.js — 內建帳號登入與雲端同步完整版 // ===================================================================== 
 import { CATS } from "./data.js";
 
 const LS_KEY = "spellAgent.v2"; 
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbycTj2QwPR510TdctWmT0MCD3CE068Lu6cB_JsNQ_We70wflVsqteGqjW5tVGTTgusG/exec";
 
+// 從 localStorage 讀取目前帳號
 let currentUsername = localStorage.getItem("spellAgent_current_username") || "";
 
-// 當使用者登入時，自動向 Google 試算表抓取該帳號的遠端紀錄
+// 自動在畫面左上角或適當位置注入一個簡單的「登入/切換帳號」按鈕與顯示區
+function injectUserLoginUI() {
+  if (document.getElementById("cloud-user-bar")) return;
+
+  const bar = document.createElement("div");
+  bar.id = "cloud-user-bar";
+  bar.style.cssText = "position:fixed; top:10px; right:10px; background:#fff; padding:6px 12px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,0.15); z-index:9999; font-size:14px; display:flex; align-items:center; gap:8px;";
+
+  const label = document.createElement("span");
+  label.innerHTML = `👤 帳號: <b>${currentUsername || "未登入"}</b>`;
+
+  const btn = document.createElement("button");
+  btn.innerText = currentUsername ? "切換帳號" : "登入同步";
+  btn.style.cssText = "padding:2px 8px; cursor:pointer; background:#4f46e5; color:#fff; border:none; border-radius:4px;";
+  
+  btn.onclick = async () => {
+    const input = prompt("請輸入您的專屬登入帳號（例如學號或英文名字）：", currentUsername);
+    if (input && input.trim()) {
+      const uname = input.trim();
+      localStorage.setItem("spellAgent_current_username", uname);
+      currentUsername = uname;
+      
+      // 顯示讀取中
+      btn.innerText = "同步中...";
+      await loginAndSync(uname);
+      alert(`已成功切換至帳號：${uname}，畫面將重新整理！`);
+      location.reload();
+    }
+  };
+
+  bar.appendChild(label);
+  bar.appendChild(btn);
+  document.body.appendChild(bar);
+}
+
+// 當 DOM 載入完成後自動顯示登入列
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", injectUserLoginUI);
+  } else {
+    injectUserLoginUI();
+  }
+}
+
+// 向 Google 試算表抓取該帳號的遠端紀錄
 export async function loginAndSync(username) {
   if (!username) return;
   currentUsername = username.trim();
@@ -35,6 +80,11 @@ export async function loginAndSync(username) {
   } catch (err) {
     console.error("雲端同步失敗，使用本地備份", err);
   }
+}
+
+// 頁面載入時若已有帳號，自動背景同步一次
+if (currentUsername) {
+  loginAndSync(currentUsername);
 }
 
 function todayStr() {
