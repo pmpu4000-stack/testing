@@ -124,10 +124,11 @@
     </div>
   </div>
 
-  <!-- ============ 3. 登入與雲端同步驗證邏輯 ============ -->
+  <!-- ============ 3. 登入與同步邏輯 ============ -->
   <script>
     let currentUsername = "";
     const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec";
+    const STORE_KEY = "spellAgent.v2";
 
     async function checkLogin() {
       const user = document.getElementById("my-username").value.trim();
@@ -139,7 +140,6 @@
         return;
       }
 
-      // 點擊後變更按鈕文字並鎖定，避免重複點擊
       loginBtn.innerText = "登入中，同步進度...";
       loginBtn.disabled = true;
 
@@ -152,18 +152,20 @@
         const result = await response.json();
         
         if (result.success) {
-          currentUsername = user; // 記錄目前登入的帳號
+          currentUsername = user;
 
-          // 如果雲端該分頁有儲存過進度，就載入到這台電腦的 localStorage 裡面
           if (result.progress) {
-            localStorage.setItem("spelling_agent_save_v1", result.progress);
+            localStorage.setItem(STORE_KEY, result.progress);
           }
 
           alert("登入成功！");
           document.getElementById("login-box").style.display = "none";
           document.getElementById("game-app-container").style.display = "block";
 
-          // 🔥 每 10 秒自動把目前的學習進度回傳到雲端儲存（這會觸發 GAS 自動建立專屬分頁）
+          // 登入成功後載入主程式模組
+          loadGameScript();
+
+          // 每 10 秒自動同步目前的遊戲進度到雲端專屬分頁
           setInterval(autoSaveProgressToCloud, 10000);
 
         } else {
@@ -179,10 +181,19 @@
       }
     }
 
-    // 自動上傳進度到 Google 試算表的專屬分頁
+    // 動態載入遊戲模組，避免未登入時提早執行而出錯
+    function loadGameScript() {
+      if (document.getElementById("game-main-script")) return;
+      const script = document.createElement("script");
+      script.id = "game-main-script";
+      script.type = "module";
+      script.src = "src/app.js";
+      document.body.appendChild(script);
+    }
+
     async function autoSaveProgressToCloud() {
       if (!currentUsername) return;
-      const localData = localStorage.getItem("spelling_agent_save_v1") || "";
+      const localData = localStorage.getItem(STORE_KEY) || "";
       if (!localData) return;
       
       try {
@@ -195,8 +206,5 @@
       }
     }
   </script>
-
-  <!-- 原本的遊戲主程式模組 -->
-  <script type="module" src="src/app.js"></script>
 </body>
 </html>
