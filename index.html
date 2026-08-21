@@ -1,20 +1,3 @@
-async function login() {
-  const username = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
-
-  const res = await fetch('你的Apps Script網址', {
-    method: 'POST',
-    body: JSON.stringify({username, password})
-  });
-  const result = await res.json();
-
-  if (result.status === 'success') {
-    alert('登入成功！');
-  } else {
-    alert('帳號或密碼錯誤');
-  }
-}
-
 <!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -102,3 +85,19 @@ async function login() {
 <script type="module" src="src/app.js"></script>
 </body>
 </html>
+async function login() {
+  const username = document.getElementById('username').value;
+  const password = document.getElementById('password').value;
+
+  const res = await fetch('https://script.google.com/macros/s/AKfycbx16Eyz3i8eLuepQNnYyjLn8HVOVUuTUsxqBsV5Qgf0WgaPHFjyemphyvaclV75kOz2Ig/exec', {
+    method: 'POST',
+    body: JSON.stringify({username, password})
+  });
+  const result = await res.json();
+
+  if (result.status === 'success') {
+    alert('登入成功！');
+  } else {
+    alert('帳號或密碼錯誤');
+  }
+}
