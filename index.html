@@ -3,39 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>受保護的網頁系統</title>
+    <title>拼字小特工 · Spelling Agent</title>
+    <!-- 保留你原本專案可能需要的 CSS 或樣式連結 -->
+    <link rel="stylesheet" href="./style.css"> <!-- 依照你原本專案的 CSS 路徑調整 -->
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #login-container { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 100%; max-width: 380px; text-align: center; }
-        input { width: 100%; padding: 10px; margin: 8px 0 16px 0; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
-        button { width: 100%; background: #4f46e5; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        button:hover { background: #4338ca; }
-        .error { color: #dc2626; font-size: 0.875rem; margin-top: 10px; }
-        #app-container { display: none; width: 100%; height: 100%; }
+        /* 登入防護遮罩樣式 */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #f8fafc; display: flex; justify-content: center; align-items: center;
+            z-index: 99999;
+        }
+        .login-box {
+            background: white; padding: 2.5rem; border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08); width: 100%; max-width: 380px; text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .login-box input {
+            width: 100%; padding: 10px; margin: 8px 0 16px 0; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box;
+        }
+        .login-box button {
+            width: 100%; background: #4f46e5; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;
+        }
+        .login-box button:hover { background: #4338ca; }
+        .error-msg { color: #dc2626; font-size: 0.875rem; margin-top: 10px; }
+        
+        /* 一開始先將你原本的主應用程式容器隱藏 */
+        #app-root { display: none; }
     </style>
 </head>
 <body>
 
-    <!-- 登入遮罩介面 -->
-    <div id="login-container">
-        <h2>系統安全驗證</h2>
-        <p style="color: #64748b; font-size: 0.9rem;">請輸入授權帳號與密碼以載入系統</p>
-        <input type="text" id="username" placeholder="請輸入帳號">
-        <input type="password" id="password" placeholder="請輸入密碼">
-        <button onclick="verifyLogin()" id="login-btn">確認登入</button>
-        <div id="msg" class="error"></div>
+    <!-- 1. 登入防護遮罩：未登入前使用者只能看到這個 -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <h2>🔒 系統安全驗證</h2>
+            <p style="color: #64748b; font-size: 0.9rem;">請輸入授權帳號與密碼進入拼字小特工</p>
+            <input type="text" id="username" placeholder="請輸入帳號">
+            <input type="password" id="password" placeholder="請輸入密碼">
+            <button onclick="verifyLogin()" id="login-btn">確認登入</button>
+            <div id="msg" class="error-msg"></div>
+        </div>
     </div>
 
-    <!-- 主程式進入點 (未通過驗證前完全隱藏且內部無邏輯) -->
-    <div id="app-container">
-        <!-- 你的核心應用程式 HTML 內容放這裡 -->
-        <h1>歡迎進入系統！核心主程式已成功載入。</h1>
+    <!-- 2. 你原本遊戲的主結構容器 (請對應你原本專案是用哪個 div 包住遊戲畫面的) -->
+    <div id="app-root">
+        <!-- 這裡放你原本專案主畫面的 HTML 結構，或者讓你的主 JS 檔案去渲染它 -->
     </div>
 
+    <!-- 驗證邏輯與動態載入主程式 -->
     <script>
-        // 【效能優化】頁面載入時先檢查是否已經驗證過（利用瀏覽器暫存）
+        // 頁面載入時檢查是否已經通過驗證（支援快取，不用每次重新打密碼）
         window.addEventListener('DOMContentLoaded', () => {
-            if (localStorage.getItem('auth_verified') === 'true') {
+            if (localStorage.getItem('spelling_auth_verified') === 'true') {
                 unlockApp();
             }
         });
@@ -55,29 +74,31 @@
             btn.innerText = "驗證中...";
             btn.disabled = true;
 
-            // 請將此處替換為你剛剛從 Google Apps Script 部署取得的網址
-            const scriptUrl = "你的_APPS_SCRIPT_網頁應用程式網址";
+            // 你的 Google Apps Script 網頁應用程式網址
+            const scriptUrl = "https://script.google.com/macros/s/AKfycbzFJRsvurZgUvU9NPtNNORGMipB-nC-TOIfW802vYHUyLRYfzGSSkfKbSrqOjNisWMWig/exec";
 
             try {
                 let response = await fetch(scriptUrl, {
                     method: "POST",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" }, // 避免 CORS 預檢觸發錯誤
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({ username: user, password: pass })
                 });
 
                 let result = await response.json();
 
                 if (result.status === "success") {
-                    // 記憶驗證狀態，下次就不必重打
-                    localStorage.setItem('auth_verified', 'true');
+                    // 記錄驗證成功狀態
+                    localStorage.setItem('spelling_auth_verified', 'true');
                     
-                    // 解鎖並動態執行主程式碼
+                    // 解鎖並顯示主畫面
                     unlockApp();
                     
-                    // 動態執行後端傳回的主程式邏輯
-                    let scriptTag = document.createElement('script');
-                    scriptTag.text = result.code;
-                    document.body.appendChild(scriptTag);
+                    // 【關鍵修正】通過驗證後，才動態把你的主程式載入進來執行！
+                    // 請把下方 src 改成你原本專案真正的進入點 JS 檔案路徑 (例如 src/main.js 或 app.js)
+                    let mainScript = document.createElement('script');
+                    mainScript.type = "module";
+                    mainScript.src = "./src/main.js"; // ⬅️ 這裡改成你專案的主程式進入點
+                    document.body.appendChild(mainScript);
                 } else {
                     msg.innerText = result.message;
                     btn.innerText = "確認登入";
@@ -85,21 +106,15 @@
                 }
             } catch (error) {
                 console.error(error);
-                msg.innerText = "連線失敗，請檢查網路或指令碼網址";
+                msg.innerText = "連線失敗，請檢查網路狀態";
                 btn.innerText = "確認登入";
                 btn.disabled = false;
             }
         }
 
         function unlockApp() {
-            document.getElementById('login-container').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
-        }
-
-        // 你的主程式初始化函式（當驗證成功後會被呼叫）
-        function initMainApp() {
-            console.log("主程式正在初始化...");
-            // 這裡可以放你原本應用程式的所有 JS 初始化程式碼
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('app-root').style.display = 'block';
         }
     </script>
 </body>
