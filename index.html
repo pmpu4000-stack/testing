@@ -124,14 +124,15 @@
     </div>
   </div>
 
-  <!-- ============ 3. 登入驗證的 JavaScript 邏輯 ============ -->
+  <!-- ============ 3. 登入與雲端同步驗證邏輯 ============ -->
   <script>
+    let currentUsername = "";
+    const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec";
+
     async function checkLogin() {
       const user = document.getElementById("my-username").value.trim();
       const pass = document.getElementById("my-password").value.trim();
       const loginBtn = document.querySelector("#login-box button");
-      
-      const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec"; 
 
       if (!user || !pass) {
         alert("帳號和密碼不能空白喔！");
@@ -139,33 +140,58 @@
       }
 
       // 點擊後變更按鈕文字並鎖定，避免重複點擊
-      loginBtn.innerText = "登入中，請稍候...";
+      loginBtn.innerText = "登入中，同步進度...";
       loginBtn.disabled = true;
 
       try {
         const response = await fetch(gasUrl, {
           method: "POST",
-          body: JSON.stringify({ username: user, password: pass })
+          body: JSON.stringify({ action: "login", username: user, password: pass })
         });
         
         const result = await response.json();
         
         if (result.success) {
+          currentUsername = user; // 記錄目前登入的帳號
+
+          // 如果雲端該分頁有儲存過進度，就載入到這台電腦的 localStorage 裡面
+          if (result.progress) {
+            localStorage.setItem("spelling_agent_save_v1", result.progress);
+          }
+
           alert("登入成功！");
           document.getElementById("login-box").style.display = "none";
           document.getElementById("game-app-container").style.display = "block";
+
+          // 🔥 每 10 秒自動把目前的學習進度回傳到雲端儲存（這會觸發 GAS 自動建立專屬分頁）
+          setInterval(autoSaveProgressToCloud, 10000);
+
         } else {
-          alert("帳號或密碼打錯囉，請再試一次！");
-          // 恢復按鈕狀態
+          alert("帳號或密碼打錯囉！");
           loginBtn.innerText = "登入";
           loginBtn.disabled = false;
         }
       } catch (err) {
         console.error(err);
         alert("連線發生問題，請檢查網路或 GAS 網址是否正確！");
-        // 恢復按鈕狀態
         loginBtn.innerText = "登入";
         loginBtn.disabled = false;
+      }
+    }
+
+    // 自動上傳進度到 Google 試算表的專屬分頁
+    async function autoSaveProgressToCloud() {
+      if (!currentUsername) return;
+      const localData = localStorage.getItem("spelling_agent_save_v1") || "";
+      if (!localData) return;
+      
+      try {
+        await fetch(gasUrl, {
+          method: "POST",
+          body: JSON.stringify({ action: "save", username: currentUsername, progress: localData })
+        });
+      } catch (e) {
+        console.error("自動存檔失敗", e);
       }
     }
   </script>
