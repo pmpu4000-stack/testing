@@ -1,14 +1,12 @@
-// ===================================================================== // store.js — 整合 Google Apps Script 雲端同步版 // ===================================================================== 
+// ===================================================================== // store.js — 完整雲端同步版 // ===================================================================== 
 import { CATS } from "./data.js";
 
 const LS_KEY = "spellAgent.v2"; 
-// 請將下方引號內替換成你的 Google Apps Script 網頁應用程式網址
 const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbycTj2QwPR510TdctWmT0MCD3CE068Lu6cB_JsNQ_We70wflVsqteGqjW5tVGTTgusG/exec";
 
-// 目前登入的使用者帳號（預設從 localStorage 或全域變數讀取，依你原本專案的登入狀態而定）
 let currentUsername = localStorage.getItem("spellAgent_current_username") || "";
 
-// 設定當前登入帳號並向遠端同步資料
+// 當使用者登入時，自動向 Google 試算表抓取該帳號的遠端紀錄
 export async function loginAndSync(username) {
   if (!username) return;
   currentUsername = username.trim();
@@ -24,13 +22,11 @@ export async function loginAndSync(username) {
     
     if (result.success) {
       if (result.progress) {
-        // 如果遠端 Google 試算表有紀錄，直接載入該帳號的歷史進度
         const remoteData = JSON.parse(result.progress);
         DB = { ...fresh(), ...remoteData };
-        saveLocalOnly(); // 同步備份到本地
-        console.log("已成功從 Google 試算表載入帳號紀錄");
+        saveLocalOnly();
+        console.log("已從 Google 試算表成功載入進度");
       } else {
-        // 如果遠端回傳 null，代表是第一次登入的全新帳號，數值維持零或未開始
         DB = fresh();
         saveLocalOnly();
         console.log("全新帳號，從零開始");
@@ -41,7 +37,6 @@ export async function loginAndSync(username) {
   }
 }
 
-// Local calendar date "YYYY-M-D"
 function todayStr() {
   const d = new Date();
   return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
@@ -83,7 +78,6 @@ function load() {
 
 let DB = load();
 
-// 只存入本機 localStorage 的內部輔助函式
 function saveLocalOnly() {
   try {
     const key = currentUsername ? `${LS_KEY}_${currentUsername}` : LS_KEY;
@@ -91,13 +85,11 @@ function saveLocalOnly() {
   } catch { /* storage off */ }
 }
 
-// 核心存檔：同時寫入本地並自動上傳到 Google 試算表
 function save() {
   saveLocalOnly();
 
   if (!currentUsername) return;
 
-  // 非同步上傳至 Google Sheet 專屬分頁
   fetch(SCRIPT_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -115,7 +107,6 @@ export function box(id) { return DB.box[id] || 0; }
 export function everWrong(id) { return !!(DB.stat[id] && DB.stat[id].ew); }
 export function correctCount(id) { return DB.stat[id] ? DB.stat[id].c : 0; }
 
-// 每次答題都會觸發，並自動同步上傳
 export function grade(id, correct, level) {
   const before = box(id);
   const st = DB.stat[id] || (DB.stat[id] = { a: 0, c: 0, ew: false });
@@ -159,7 +150,7 @@ export function grade(id, correct, level) {
     if (newlyMastered) h.m++;
   }
 
-  save(); // 這裡會自動觸發遠端上傳
+  save();
   return { correct, gain, streak: DB.streak, box: DB.box[id], newlyMastered };
 }
 
