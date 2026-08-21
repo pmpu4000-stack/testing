@@ -172,44 +172,5 @@
 
   <!-- 原本的遊戲主程式模組 -->
   <script type="module" src="src/app.js"></script>
-<script>
-  // 當遊戲正常載入後，在背景自動處理雲端帳號同步
-  window.addEventListener("DOMContentLoaded", () => {
-    // 彈出簡單的對話框讓學生輸入帳號
-    let username = prompt("請輸入您的拼字小特工帳號以同步學習進度：");
-    if (!username) return;
-    username = username.trim();
-
-    const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec";
-    const STORE_KEY = "spellAgent.v2"; // 配合你原本 store.js 的存檔 Key
-
-    // 1. 登入時向雲端抓取該帳號的進度
-    fetch(gasUrl, {
-      method: "POST",
-      body: JSON.stringify({ action: "login", username: username, password: "123" })
-    })
-    .then(res => res.json())
-    .then(result => {
-      if (result.success && result.progress) {
-        // 把雲端分頁裡的進度寫入瀏覽器
-        localStorage.setItem(STORE_KEY, result.progress);
-        alert("已成功同步「" + username + "」的學習進度！");
-        location.reload(); // 重新整理以套用進度
-      }
-    })
-    .catch(err => console.log("同步連線中..."));
-
-    // 2. 背景每 10 秒自動把最新的遊戲進度回傳到雲端專屬分頁
-    setInterval(() => {
-      const localData = localStorage.getItem(STORE_KEY) || "";
-      if (!localData) return;
-      
-      fetch(gasUrl, {
-        method: "POST",
-        body: JSON.stringify({ action: "save", username: username, progress: localData })
-      }).catch(e => {});
-    }, 10000);
-  });
-</script>
 </body>
 </html>

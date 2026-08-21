@@ -1,202 +1,218 @@
-<!doctype html>
-<html lang="zh-Hant">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>拼字小特工 · Spelling Agent</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <style>
-    /* 簡單的登入畫面樣式美化 */
-    #login-box {
-      max-width: 400px;
-      margin: 100px auto;
-      padding: 30px;
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      text-align: center;
-      font-family: sans-serif;
-    }
-    #login-box input {
-      width: 80%;
-      padding: 10px;
-      margin: 10px 0;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    #login-box button {
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #4f46e5;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    #login-box button:hover {
-      background-color: #4338ca;
-    }
-    #login-box button:disabled {
-      background-color: #9ca3af;
-      cursor: not-allowed;
-    }
-  </style>
-</head>
-<body>
+// =====================================================================
+// store.js — the model. Progress state, localStorage, grading rules,
+// per-level accounting, and derived statistics. No DOM in here.
+// =====================================================================
+import { CATS } from "./data.js";
 
-  <!-- ==================== 1. 登入畫面區塊 ==================== -->
-  <div id="login-box">
-    <h2>🔒 請先登入 拼字小特工</h2>
-    <input type="text" id="my-username" placeholder="請輸入帳號"><br>
-    <input type="password" id="my-password" placeholder="請輸入密碼"><br><br>
-    <button onclick="checkLogin()">登入</button>
-  </div>
+const LS_KEY = "spellAgent.v2"; // bumped: added level progression
 
-  <!-- ==================== 2. 遊戲主畫面（預設隱藏，登入成功後才會顯示） ==================== -->
-  <div id="game-app-container" style="display: none;">
-    <canvas id="fx"></canvas>
-    <div class="app">
-      <header>
-        <div class="logo">拼</div>
-        <div class="title">
-          <h1>拼字小特工 <span style="font-size:13px;color:var(--ink3)">Spelling Agent</span></h1>
-          <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
-        </div>
-        <div class="stats">
-          <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
-          <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
-          <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
-          <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
-        </div>
-      </header>
+// Local calendar date "YYYY-M-D" (used to scope a training session to one day).
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+}
+// The calendar date `offset` days before today, as { key, dnum }.
+function dayAgo(offset) {
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  return { key: d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(), dnum: d.getDate() };
+}
 
-      <!-- ============ PLAY SCREEN ============ -->
-      <div id="screen-play">
-        <div class="session" id="session"></div>
-        <nav class="levelbar" id="levelbar" aria-label="選擇關卡"></nav>
-        <div class="modes" id="modes" role="tablist" aria-label="練習模式"></div>
-        <main class="card" id="card">
-          <div class="prompt-row">
-            <span class="catlabel" id="catlabel">關卡</span>
-            <span class="modehint" id="modehint"></span>
-          </div>
-          <div class="zh" id="zh"></div>
-          <div class="sent" id="sent"></div>
-          <div class="stage" id="stage"></div>
-          <div class="feedback" id="feedback"></div>
-          <div class="actions">
-            <button class="btn ghost" id="peekBtn" title="偷看一下答案">👀 偷看</button>
-            <button class="btn primary" id="checkBtn">檢查 Check</button>
-          </div>
-        </main>
-        <div class="banner" id="banner"></div>
-        <section class="progress">
-          <h3><span>學習進度 Progress</span> <span style="display:flex;gap:14px">
-            <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
-            <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
-            <a id="resetBtn" title="清除所有進度">重來 reset</a>
-          </span></h3>
-          <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
-          <div class="legend">
-            <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
-            <span title="連續答對 2 次"><i style="background:#B9E8D3"></i>練習中 <b id="n-prac" class="tnum">0</b></span>
-            <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
-            <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
-          </div>
-          <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
-        </section>
-        <section class="summary" id="summary" hidden></section>
-        <p class="foot">
-          🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
-          方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
-        </p>
-      </div>
+// box (Leitner): 0 new · 1 learning · 2 practicing · 3 mastered
+// stat[id]: { a: attempts, c: corrects, ew: everWrong }
+// lstat[level]: { a, c } — per-level attempts/corrects (drives the 80% gate)
+// level: { current, unlocked, placed }
+function fresh() {
+  return {
+    box: {}, stat: {}, lstat: {},
+    level: { current: 1, unlocked: 1, placed: false },
+    // one day's training run; counters reset each time you "start today's training"
+    session: { active: false, date: null, answered: 0, correct: 0, incorrect: 0, ids: {}, mastered: 0 },
+    // per-day practice log, keyed by date -> { a: answered, c: correct, w: wrong, m: newly mastered }
+    history: {},
+    points: 0, streak: 0, best: 0, attempts: 0, correct: 0,
+  };
+}
 
-      <!-- ============ QUIZ SCREEN (placement / challenge) ============ -->
-      <div id="screen-quiz" hidden>
-        <main class="card quizcard">
-          <div class="quizhead" id="quizhead"></div>
-          <div class="quizprog"><i id="quizprog-bar"></i></div>
-          <div class="stage" id="quizstage"></div>
-        </main>
-      </div>
-    </div>
-  </div>
+function load() {
+  try {
+    const d = JSON.parse(localStorage.getItem(LS_KEY));
+    if (!d) return fresh();
+    const base = fresh();
+    const merged = {
+      ...base, ...d,
+      level: { ...base.level, ...(d.level || {}) },
+      session: { ...base.session, ...(d.session || {}) },
+      history: d.history || {},
+    };
+    // a session left open from a previous day is over
+    if (merged.session.active && merged.session.date !== todayStr()) merged.session.active = false;
+    return merged;
+  } catch {
+    return fresh();
+  }
+}
 
-  <!-- ============ 3. 登入與對應 store.js 的雲端同步邏輯 ============ -->
-  <script>
-    let currentUsername = "";
-    const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec";
-    const STORE_KEY = "spellAgent.v2"; // 對應 store.js 裡面的真實 Key
+let DB = load();
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch { /* storage off */ } }
 
-    async function checkLogin() {
-      const user = document.getElementById("my-username").value.trim();
-      const pass = document.getElementById("my-password").value.trim();
-      const loginBtn = document.querySelector("#login-box button");
+export function box(id) { return DB.box[id] || 0; }
+export function everWrong(id) { return !!(DB.stat[id] && DB.stat[id].ew); }
+export function correctCount(id) { return DB.stat[id] ? DB.stat[id].c : 0; }
 
-      if (!user || !pass) {
-        alert("帳號和密碼不能空白喔！");
-        return;
-      }
+// Grade one practice attempt. `level` (optional) also updates that level's tally.
+export function grade(id, correct, level) {
+  const before = box(id);
+  const st = DB.stat[id] || (DB.stat[id] = { a: 0, c: 0, ew: false });
+  st.a++; DB.attempts++;
 
-      loginBtn.innerText = "登入中，同步進度...";
-      loginBtn.disabled = true;
+  let gain = 0, newlyMastered = false;
+  if (correct) {
+    st.c++; DB.correct++;
+    DB.box[id] = Math.min(3, before + 1);
+    DB.streak++; DB.best = Math.max(DB.best, DB.streak);
+    gain = 8 + Math.min(12, DB.streak * 2);
+    DB.points += gain;
+    if (DB.box[id] === 3 && before < 3) newlyMastered = true;
+  } else {
+    st.ew = true;
+    DB.box[id] = 1;
+    DB.streak = 0;
+  }
+  if (level) {
+    const ls = DB.lstat[level] || (DB.lstat[level] = { a: 0, c: 0 });
+    ls.a++; if (correct) ls.c++;
+  }
+  if (DB.session.active) {
+    const s = DB.session;
+    s.answered++;
+    if (correct) s.correct++; else s.incorrect++;
+    s.ids[id] = 1;
+    if (newlyMastered) s.mastered++;
+    // log into today's history (survives even if the session is never explicitly ended)
+    const h = DB.history[todayStr()] || (DB.history[todayStr()] = { a: 0, c: 0, w: 0, m: 0 });
+    h.a++; if (correct) h.c++; else h.w++; if (newlyMastered) h.m++;
+  }
+  save();
+  return { correct, gain, streak: DB.streak, box: DB.box[id], newlyMastered };
+}
 
-      try {
-        const response = await fetch(gasUrl, {
-          method: "POST",
-          body: JSON.stringify({ action: "login", username: user, password: pass })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-          currentUsername = user;
+export function reset() { DB = fresh(); save(); }
 
-          // 將雲端抓下來的正確遊戲存檔寫入 localStorage
-          if (result.progress) {
-            localStorage.setItem(STORE_KEY, result.progress);
-          }
+// ---- today's training session ----
+export function sessionStart() {
+  DB.session = { active: true, date: todayStr(), answered: 0, correct: 0, incorrect: 0, ids: {}, mastered: 0 };
+  save();
+}
+export function sessionEnd() {
+  const s = DB.session;
+  const summary = {
+    answered: s.answered, correct: s.correct, incorrect: s.incorrect,
+    distinct: Object.keys(s.ids).length, mastered: s.mastered,
+    rate: s.answered ? Math.round((s.correct / s.answered) * 100) : 0,
+  };
+  DB.session.active = false;
+  save();
+  return summary;
+}
+// Practice history for the last `n` days + streaks, for the calendar heatmap.
+export function historyData(n = 28) {
+  const days = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const { key, dnum } = dayAgo(i);
+    const h = DB.history[key];
+    const a = h ? h.a : 0, c = h ? h.c : 0;
+    days.push({ key, dnum, a, c, rate: a ? Math.round((c / a) * 100) : 0, level: a === 0 ? 0 : a < 10 ? 1 : a < 20 ? 2 : 3 });
+  }
+  const has = (off) => !!DB.history[dayAgo(off).key];
+  let streak = 0;
+  let start = has(0) ? 0 : has(1) ? 1 : null; // streak stays alive through today or yesterday
+  if (start !== null) { let k = start; while (has(k)) { streak++; k++; } }
 
-          alert("登入成功！");
-          document.getElementById("login-box").style.display = "none";
-          document.getElementById("game-app-container").style.display = "block";
+  const toIdx = (ds) => { const [y, m, d] = ds.split("-").map(Number); return Math.round(new Date(y, m - 1, d).getTime() / 86400000); };
+  const idxs = Object.keys(DB.history).map(toIdx).sort((x, y) => x - y);
+  let best = 0, cur = 0, prev = null;
+  for (const i of idxs) { cur = (prev !== null && i === prev + 1) ? cur + 1 : 1; best = Math.max(best, cur); prev = i; }
+  return { days, streak, best, total: idxs.length };
+}
 
-          // 每 10 秒自動同步目前的遊戲進度到雲端專屬分頁
-          setInterval(autoSaveProgressToCloud, 10000);
+export function sessionState() {
+  const s = DB.session;
+  return {
+    active: s.active, answered: s.answered, correct: s.correct, incorrect: s.incorrect,
+    distinct: Object.keys(s.ids).length,
+    rate: s.answered ? Math.round((s.correct / s.answered) * 100) : 0,
+  };
+}
 
-        } else {
-          alert("帳號或密碼打錯囉！");
-          loginBtn.innerText = "登入";
-          loginBtn.disabled = false;
-        }
-      } catch (err) {
-        console.error(err);
-        alert("連線發生問題，請檢查網路或 GAS 網址是否正確！");
-        loginBtn.innerText = "登入";
-        loginBtn.disabled = false;
-      }
-    }
+// ---- level progression ----
+export function progress() { return { ...DB.level }; }
 
-    // 自動上傳正確的遊戲進度到 Google 試算表
-    async function autoSaveProgressToCloud() {
-      if (!currentUsername) return;
-      const localData = localStorage.getItem(STORE_KEY) || "";
-      if (!localData) return;
-      
-      try {
-        await fetch(gasUrl, {
-          method: "POST",
-          body: JSON.stringify({ action: "save", username: currentUsername, progress: localData })
-        });
-      } catch (e) {
-        console.error("自動存檔失敗", e);
-      }
-    }
-  </script>
+export function levelStats(level) {
+  const s = DB.lstat[level] || { a: 0, c: 0 };
+  return { attempts: s.a, correct: s.c, rate: s.a ? s.c / s.a : 0 };
+}
 
-  <!-- 原本的遊戲主程式模組 -->
-  <script type="module" src="src/app.js"></script>
-</body>
-</html>
+export function setCurrentLevel(n) {
+  DB.level.current = n;
+  if (n > DB.level.unlocked) DB.level.unlocked = n;
+  save();
+}
+
+export function completePlacement(startLevel) {
+  DB.level.placed = true;
+  DB.level.current = startLevel;
+  DB.level.unlocked = Math.max(DB.level.unlocked, startLevel);
+  save();
+}
+
+// Promote after clearing a challenge; returns the new current level.
+export function promote() {
+  const next = Math.min(5, DB.level.current + 1);
+  DB.level.unlocked = Math.max(DB.level.unlocked, next);
+  DB.level.current = next;
+  save();
+  return next;
+}
+
+// ---- header + progress-bar numbers ----
+export function stats(words) {
+  let learn = 0, prac = 0, mast = 0;
+  for (const w of words) {
+    const b = box(w.id);
+    if (b >= 3) mast++; else if (b === 2) prac++; else if (b === 1) learn++;
+  }
+  const distinctCorrect = Object.values(DB.stat).filter((s) => s.c > 0).length;
+  const passRate = DB.attempts ? Math.round((DB.correct / DB.attempts) * 100) : 0;
+  return {
+    learn, prac, mast, total: words.length,
+    currentLevel: DB.level.current, streak: DB.streak,
+    distinctCorrect, passRate, attempts: DB.attempts, correct: DB.correct,
+  };
+}
+
+// Everything the summary panel needs, as plain data.
+export function summary(words) {
+  const s = stats(words);
+  const mastered = words.filter((w) => box(w.id) >= 3);
+  const fixed = words.filter((w) => box(w.id) >= 3 && everWrong(w.id));
+  const levels = [1, 2, 3, 4, 5].map((lv) => {
+    const ws = words.filter((w) => w.level === lv);
+    const ls = levelStats(lv);
+    return {
+      level: lv, total: ws.length,
+      mast: ws.filter((w) => box(w.id) >= 3).length,
+      correct: ws.filter((w) => correctCount(w.id) > 0).length,
+      rate: Math.round(ls.rate * 100), attempts: ls.attempts,
+    };
+  });
+  const catCounts = Object.keys(CATS).map((k) => {
+    const ws = words.filter((w) => w.cat === k);
+    return { name: CATS[k].name, color: CATS[k].color, total: ws.length, mast: ws.filter((w) => box(w.id) >= 3).length };
+  });
+  return {
+    passRate: s.passRate, distinctCorrect: s.distinctCorrect,
+    attempts: s.attempts, correct: s.correct, total: s.total,
+    mastered, fixed, levels, catCounts, history: historyData(),
+  };
+}
