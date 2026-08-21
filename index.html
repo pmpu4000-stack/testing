@@ -37,6 +37,10 @@
     #login-box button:hover {
       background-color: #4338ca;
     }
+    #login-box button:disabled {
+      background-color: #9ca3af;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 <body>
@@ -125,14 +129,18 @@
     async function checkLogin() {
       const user = document.getElementById("my-username").value.trim();
       const pass = document.getElementById("my-password").value.trim();
+      const loginBtn = document.querySelector("#login-box button");
       
-      // ⬇️ 請將下方引號內的網址換成你從 Google Apps Script 複製的「網頁應用程式網址」
       const gasUrl = "https://script.google.com/macros/s/AKfycbzYN13pRIENstylzssSxR9zkvp-1kTxg-Pyw-6BZb3yrWs1ThTFegbBnn1WYrNG10ob/exec"; 
 
       if (!user || !pass) {
         alert("帳號和密碼不能空白喔！");
         return;
       }
+
+      // 點擊後變更按鈕文字並鎖定，避免重複點擊
+      loginBtn.innerText = "登入中，請稍候...";
+      loginBtn.disabled = true;
 
       try {
         const response = await fetch(gasUrl, {
@@ -144,15 +152,20 @@
         
         if (result.success) {
           alert("登入成功！");
-          // 隱藏登入區塊，顯示遊戲主畫面
           document.getElementById("login-box").style.display = "none";
           document.getElementById("game-app-container").style.display = "block";
         } else {
           alert("帳號或密碼打錯囉，請再試一次！");
+          // 恢復按鈕狀態
+          loginBtn.innerText = "登入";
+          loginBtn.disabled = false;
         }
       } catch (err) {
         console.error(err);
         alert("連線發生問題，請檢查網路或 GAS 網址是否正確！");
+        // 恢復按鈕狀態
+        loginBtn.innerText = "登入";
+        loginBtn.disabled = false;
       }
     }
   </script>
