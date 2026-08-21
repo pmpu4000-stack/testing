@@ -97,7 +97,7 @@
                     // 請把下方 src 改成你原本專案真正的進入點 JS 檔案路徑 (例如 src/main.js 或 app.js)
                     let mainScript = document.createElement('script');
                     mainScript.type = "module";
-                    mainScript.src = "./src/main.js"; // ⬅️ 這裡改成你專案的主程式進入點
+                    mainScript.src = "./src/app.js"; // ⬅️ 這裡改成你專案的主程式進入點
                     document.body.appendChild(mainScript);
                 } else {
                     msg.innerText = result.message;
