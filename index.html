@@ -50,7 +50,7 @@
     <h2>🔒 請先登入 拼字小特工</h2>
     <input type="text" id="my-username" placeholder="請輸入帳號"><br>
     <input type="password" id="my-password" placeholder="請輸入密碼"><br><br>
-    <button onclick="checkLogin()">登入</button>
+    <button onclick="checkLogin()">登入並同步雲端進度</button>
   </div>
 
   <!-- ==================== 2. 遊戲主畫面（預設隱藏，登入成功後才會顯示） ==================== -->
@@ -108,7 +108,7 @@
         </section>
         <section class="summary" id="summary" hidden></section>
         <p class="foot">
-          🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
+          🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動同步至雲端。<br>
           方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
         </p>
       </div>
@@ -124,47 +124,65 @@
     </div>
   </div>
 
-  <!-- ============ 3. 登入驗證的 JavaScript 邏輯 ============ -->
+  <!-- 遊戲本體主程式 -->
+  <script type="module" src="src/app.js"></script>
+
+  <!-- ==================== 3. 雲端登入與 A1 強制同步邏輯 ==================== -->
   <script>
+    const STORE_KEY = "spellAgent.v2"; // 遊戲原本的存檔 Key
+    const gasUrl = "https://script.google.com/macros/s/AKfycbwJgrDkJ3o0ZeGf8rd1syjBZk1t7rwXJfUJlX8monoCO05vKZgTZebs0vhSNnigxX-N/exec";
+
     async function checkLogin() {
       const user = document.getElementById("my-username").value.trim();
       const pass = document.getElementById("my-password").value.trim();
       const loginBtn = document.querySelector("#login-box button");
-      
-      const gasUrl = "https://script.google.com/macros/s/AKfycbwJgrDkJ3o0ZeGf8rd1syjBZk1t7rwXJfUJlX8monoCO05vKZgTZebs0vhSNnigxX-N/exec"; 
 
       if (!user || !pass) {
         alert("帳號和密碼不能空白喔！");
         return;
       }
 
-      // 點擊後變更按鈕文字並鎖定，避免重複點擊
-      loginBtn.innerText = "登入中，請稍候...";
+      loginBtn.innerText = "正在登入並同步雲端進度...";
       loginBtn.disabled = true;
 
       try {
+        // 1. 向 GAS 發送登入請求，並從 A1 抓取該帳號的最新進度
         const response = await fetch(gasUrl, {
           method: "POST",
-          body: JSON.stringify({ username: user, password: pass })
+          body: JSON.stringify({ action: "login", username: user, password: pass })
         });
-        
         const result = await response.json();
-        
+
         if (result.success) {
-          alert("登入成功！");
+          // 2. 如果雲端 A1 有存檔，強制寫入本機覆蓋，實現跨電腦同步
+          if (result.progress) {
+            localStorage.setItem(STORE_KEY, result.progress);
+          }
+
+          alert("登入成功！已同步最新進度。");
           document.getElementById("login-box").style.display = "none";
           document.getElementById("game-app-container").style.display = "block";
+
+          // 啟動背景自動存檔（每 10 秒將最新進度寫回雲端 A1）
+          setInterval(() => {
+            const localData = localStorage.getItem(STORE_KEY) || "";
+            if (!localData) return;
+            
+            fetch(gasUrl, {
+              method: "POST",
+              body: JSON.stringify({ action: "save", username: user, progress: localData })
+            }).catch(e => {});
+          }, 10000);
+
         } else {
           alert("帳號或密碼打錯囉，請再試一次！");
-          // 恢復按鈕狀態
-          loginBtn.innerText = "登入";
+          loginBtn.innerText = "登入並同步雲端進度";
           loginBtn.disabled = false;
         }
       } catch (err) {
         console.error(err);
         alert("連線發生問題，請檢查網路或 GAS 網址是否正確！");
-        // 恢復按鈕狀態
-        loginBtn.innerText = "登入";
+        loginBtn.innerText = "登入並同步雲端進度";
         loginBtn.disabled = false;
       }
     }
