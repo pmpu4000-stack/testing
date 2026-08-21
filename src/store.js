@@ -3,7 +3,7 @@ import { CATS } from "./data.js";
 
 const LS_KEY = "spellAgent.v2"; 
 // 請將下方引號內替換成你的 Google Apps Script 網頁應用程式網址
-const SCRIPT_URL = "https://script.google.com/macros/s/你的部署網址/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbycTj2QwPR510TdctWmT0MCD3CE068Lu6cB_JsNQ_We70wflVsqteGqjW5tVGTTgusG/exec";
 
 // 目前登入的使用者帳號（預設從 localStorage 或全域變數讀取，依你原本專案的登入狀態而定）
 let currentUsername = localStorage.getItem("spellAgent_current_username") || "";
