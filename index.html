@@ -1,87 +1,106 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>拼字小特工 · Spelling Agent</title>
-<link rel="stylesheet" href="css/styles.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>受保護的網頁系統</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #login-container { background: white; padding: 2.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); width: 100%; max-width: 380px; text-align: center; }
+        input { width: 100%; padding: 10px; margin: 8px 0 16px 0; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; background: #4f46e5; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        button:hover { background: #4338ca; }
+        .error { color: #dc2626; font-size: 0.875rem; margin-top: 10px; }
+        #app-container { display: none; width: 100%; height: 100%; }
+    </style>
 </head>
 <body>
 
-<canvas id="fx"></canvas>
-<div class="app">
-  <header>
-    <div class="logo">拼</div>
-    <div class="title">
-      <h1>拼字小特工 <span style="font-size:13px;color:var(--ink3)">Spelling Agent</span></h1>
-      <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
+    <!-- 登入遮罩介面 -->
+    <div id="login-container">
+        <h2>系統安全驗證</h2>
+        <p style="color: #64748b; font-size: 0.9rem;">請輸入授權帳號與密碼以載入系統</p>
+        <input type="text" id="username" placeholder="請輸入帳號">
+        <input type="password" id="password" placeholder="請輸入密碼">
+        <button onclick="verifyLogin()" id="login-btn">確認登入</button>
+        <div id="msg" class="error"></div>
     </div>
-    <div class="stats">
-      <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
-      <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
-      <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
-      <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
+
+    <!-- 主程式進入點 (未通過驗證前完全隱藏且內部無邏輯) -->
+    <div id="app-container">
+        <!-- 你的核心應用程式 HTML 內容放這裡 -->
+        <h1>歡迎進入系統！核心主程式已成功載入。</h1>
     </div>
-  </header>
 
-  <!-- ============ PLAY SCREEN ============ -->
-  <div id="screen-play">
-    <div class="session" id="session"></div>
-    <nav class="levelbar" id="levelbar" aria-label="選擇關卡"></nav>
-    <div class="modes" id="modes" role="tablist" aria-label="練習模式"></div>
+    <script>
+        // 【效能優化】頁面載入時先檢查是否已經驗證過（利用瀏覽器暫存）
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('auth_verified') === 'true') {
+                unlockApp();
+            }
+        });
 
-    <main class="card" id="card">
-      <div class="prompt-row">
-        <span class="catlabel" id="catlabel">關卡</span>
-        <span class="modehint" id="modehint"></span>
-      </div>
-      <div class="zh" id="zh"></div>
-      <div class="sent" id="sent"></div>
-      <div class="stage" id="stage"></div>
-      <div class="feedback" id="feedback"></div>
-      <div class="actions">
-        <button class="btn ghost" id="peekBtn" title="偷看一下答案">👀 偷看</button>
-        <button class="btn primary" id="checkBtn">檢查 Check</button>
-      </div>
-    </main>
+        async function verifyLogin() {
+            const user = document.getElementById('username').value.trim();
+            const pass = document.getElementById('password').value.trim();
+            const msg = document.getElementById('msg');
+            const btn = document.getElementById('login-btn');
 
-    <div class="banner" id="banner"></div>
+            if (!user || !pass) {
+                msg.innerText = "帳號與密碼不得為空";
+                return;
+            }
 
-    <section class="progress">
-      <h3><span>學習進度 Progress</span>
-        <span style="display:flex;gap:14px">
-          <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
-          <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
-          <a id="resetBtn" title="清除所有進度">重來 reset</a>
-        </span></h3>
-      <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
-      <div class="legend">
-        <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
-        <span title="連續答對 2 次"><i style="background:#B9E8D3"></i>練習中 <b id="n-prac" class="tnum">0</b></span>
-        <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
-        <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
-      </div>
-      <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
-    </section>
+            msg.innerText = "";
+            btn.innerText = "驗證中...";
+            btn.disabled = true;
 
-    <section class="summary" id="summary" hidden></section>
+            // 請將此處替換為你剛剛從 Google Apps Script 部署取得的網址
+            const scriptUrl = "你的_APPS_SCRIPT_網頁應用程式網址";
 
-    <p class="foot">
-      🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
-      方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
-    </p>
-  </div>
+            try {
+                let response = await fetch(scriptUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" }, // 避免 CORS 預檢觸發錯誤
+                    body: JSON.stringify({ username: user, password: pass })
+                });
 
-  <!-- ============ QUIZ SCREEN (placement / challenge) ============ -->
-  <div id="screen-quiz" hidden>
-    <main class="card quizcard">
-      <div class="quizhead" id="quizhead"></div>
-      <div class="quizprog"><i id="quizprog-bar"></i></div>
-      <div class="stage" id="quizstage"></div>
-    </main>
-  </div>
-</div>
+                let result = await response.json();
 
-<script type="module" src="src/app.js"></script>
+                if (result.status === "success") {
+                    // 記憶驗證狀態，下次就不必重打
+                    localStorage.setItem('auth_verified', 'true');
+                    
+                    // 解鎖並動態執行主程式碼
+                    unlockApp();
+                    
+                    // 動態執行後端傳回的主程式邏輯
+                    let scriptTag = document.createElement('script');
+                    scriptTag.text = result.code;
+                    document.body.appendChild(scriptTag);
+                } else {
+                    msg.innerText = result.message;
+                    btn.innerText = "確認登入";
+                    btn.disabled = false;
+                }
+            } catch (error) {
+                console.error(error);
+                msg.innerText = "連線失敗，請檢查網路或指令碼網址";
+                btn.innerText = "確認登入";
+                btn.disabled = false;
+            }
+        }
+
+        function unlockApp() {
+            document.getElementById('login-container').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+        }
+
+        // 你的主程式初始化函式（當驗證成功後會被呼叫）
+        function initMainApp() {
+            console.log("主程式正在初始化...");
+            // 這裡可以放你原本應用程式的所有 JS 初始化程式碼
+        }
+    </script>
 </body>
 </html>
