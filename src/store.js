@@ -1,11 +1,12 @@
-// src/store.js - 雲端同步與全相容狀態管理
+// src/store.js - 雲端同步與全相容狀態管理（含 sessionState 支援）
 
 let state = {
     level: 1,
     placed: true, // 預設已測過程度，直接進入遊戲
     words: {},    // word -> { box, correctCount, wrongCount }
     history: {},  // 'YYYY-MM-DD' -> count
-    stats: { totalCorrect: 0, streak: 0, bestStreak: 0 }
+    stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
+    session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 }
 };
 
 let listeners = [];
@@ -29,6 +30,9 @@ export async function initStore() {
         
         if (result.status === "success" && result.progress) {
             state = Object.assign(state, result.progress);
+            if (!state.session) {
+                state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
+            }
         }
     } catch (err) {
         console.error("從雲端載入進度失敗：", err);
@@ -52,13 +56,20 @@ async function saveToCloud() {
     }
 }
 
-// 核心 progress 函式（同時支援具名匯出與預設物件屬性）
 export function progress() {
     return state;
 }
 
 export function getState() {
     return state;
+}
+
+// 【新增】提供 app.js 呼叫的 sessionState 函式
+export function sessionState() {
+    if (!state.session) {
+        state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
+    }
+    return state.session;
 }
 
 export function box(word) {
@@ -99,6 +110,16 @@ export function recordAnswer(word, correct, level) {
         state.stats.streak = 0;
     }
 
+    // 更新當日 session 統計
+    if (state.session) {
+        state.session.done = (state.session.done || 0) + 1;
+        if (correct) {
+            state.session.correct = (state.session.correct || 0) + 1;
+        } else {
+            state.session.wrong = (state.session.wrong || 0) + 1;
+        }
+    }
+
     const today = new Date().toISOString().slice(0, 10);
     state.history[today] = (state.history[today] || 0) + 1;
 
@@ -117,17 +138,19 @@ export function resetProgress() {
             placed: true,
             words: {},
             history: {},
-            stats: { totalCorrect: 0, streak: 0, bestStreak: 0 }
+            stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
+            session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 }
         };
         notify();
     }
 }
 
-// 預設匯出包裝物件，確保 app.js 呼叫 store.progress() 時絕對不會報錯
+// 預設匯出物件
 export default {
     initStore,
     progress,
     getState,
+    sessionState,
     box,
     subscribe,
     recordAnswer,
