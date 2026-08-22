@@ -1,4 +1,4 @@
-// src/store.js - 零死角 Proxy 雙向相容版（同時支援函式呼叫與物件屬性存取）
+// src/store.js - 零死角 Proxy 雙向相容版（含 levelStats 支援）
 
 let state = {
     level: 1,
@@ -6,7 +6,8 @@ let state = {
     words: {},    
     history: {},  
     stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
-    session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 }
+    session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 },
+    levelStats: {} // 各等級統計
 };
 
 let listeners = [];
@@ -19,7 +20,7 @@ export function getState() {
     return state;
 }
 
-// 1. 讓 sessionState 具備 Proxy 防禦（同時支援函式與物件）
+// 1. sessionState Proxy
 const sessionStateFn = function() {
     if (!state.session) {
         state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
@@ -28,21 +29,12 @@ const sessionStateFn = function() {
 };
 
 export const sessionState = new Proxy(sessionStateFn, {
-    apply(target, thisArg, argList) {
-        return sessionStateFn();
-    },
-    get(target, prop) {
-        const obj = sessionStateFn();
-        return obj[prop];
-    },
-    set(target, prop, val) {
-        const obj = sessionStateFn();
-        obj[prop] = val;
-        return true;
-    }
+    apply(target, thisArg, argList) { return sessionStateFn(); },
+    get(target, prop) { return sessionStateFn()[prop]; },
+    set(target, prop, val) { sessionStateFn()[prop] = val; return true; }
 });
 
-// 2. 讓 stats 具備 Proxy 防禦（徹底解決 store.stats is not a function 錯誤）
+// 2. stats Proxy
 const statsFn = function() {
     if (!state.stats) {
         state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
@@ -51,15 +43,36 @@ const statsFn = function() {
 };
 
 export const stats = new Proxy(statsFn, {
+    apply(target, thisArg, argList) { return statsFn(); },
+    get(target, prop) { return statsFn()[prop]; },
+    set(target, prop, val) { statsFn()[prop] = val; return true; }
+});
+
+// 3. 【新增】levelStats Proxy（同時支援函式呼叫與物件存取）
+const levelStatsFn = function(lv) {
+    if (!state.levelStats) {
+        state.levelStats = {};
+    }
+    if (lv !== undefined) {
+        if (!state.levelStats[lv]) {
+            state.levelStats[lv] = { correct: 0, wrong: 0, total: 0 };
+        }
+        return state.levelStats[lv];
+    }
+    return state.levelStats;
+};
+
+export const levelStats = new Proxy(levelStatsFn, {
     apply(target, thisArg, argList) {
-        return statsFn();
+        return levelStatsFn(argList[0]);
     },
     get(target, prop) {
-        const obj = statsFn();
+        const obj = levelStatsFn();
+        if (prop in obj) return obj[prop];
         return obj[prop];
     },
     set(target, prop, val) {
-        const obj = statsFn();
+        const obj = levelStatsFn();
         obj[prop] = val;
         return true;
     }
@@ -101,12 +114,9 @@ export async function initStore() {
         
         if (result.status === "success" && result.progress) {
             state = Object.assign(state, result.progress);
-            if (!state.session) {
-                state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
-            }
-            if (!state.stats) {
-                state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
-            }
+            if (!state.session) state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
+            if (!state.stats) state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
+            if (!state.levelStats) state.levelStats = {};
             console.log("雲端存檔載入成功，正在更新畫面...");
             notify();
         }
@@ -150,13 +160,19 @@ export function recordAnswer(word, correct, level) {
         state.stats.streak = 0;
     }
 
+    // 記錄等級統計
+    if (level) {
+        if (!state.levelStats) state.levelStats = {};
+        if (!state.levelStats[level]) state.levelStats[level] = { correct: 0, wrong: 0, total: 0 };
+        state.levelStats[level].total++;
+        if (correct) state.levelStats[level].correct++;
+        else state.levelStats[level].wrong++;
+    }
+
     if (state.session) {
         state.session.done = (state.session.done || 0) + 1;
-        if (correct) {
-            state.session.correct = (state.session.correct || 0) + 1;
-        } else {
-            state.session.wrong = (state.session.wrong || 0) + 1;
-        }
+        if (correct) state.session.correct = (state.session.correct || 0) + 1;
+        else state.session.wrong = (state.session.wrong || 0) + 1;
     }
 
     const today = new Date().toISOString().slice(0, 10);
@@ -178,7 +194,8 @@ export function resetProgress() {
             words: {},
             history: {},
             stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
-            session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 }
+            session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 },
+            levelStats: {}
         };
         notify();
     }
@@ -191,6 +208,7 @@ export default {
     getState,
     sessionState,
     stats,
+    levelStats,
     box,
     subscribe,
     recordAnswer,
