@@ -1,9 +1,10 @@
-// src/store.js - 雲端同步與狀態管理（含 srs.js 所需的 box 匯出）
+// src/store.js - 雲端同步與全相容狀態管理
 
 let state = {
     level: 1,
-    words: {}, // word -> { box, correctCount, wrongCount, lastPracticed }
-    history: {}, // 'YYYY-MM-DD' -> count
+    placed: true, // 預設已測過程度，直接進入遊戲
+    words: {},    // word -> { box, correctCount, wrongCount }
+    history: {},  // 'YYYY-MM-DD' -> count
     stats: { totalCorrect: 0, streak: 0, bestStreak: 0 }
 };
 
@@ -15,7 +16,7 @@ export async function initStore() {
     const scriptUrl = window.CLOUD_SCRIPT_URL;
 
     if (!username || !scriptUrl) {
-        console.error("未找到登入的使用者資訊");
+        console.warn("尚未設定雲端帳號，使用預設狀態");
         return;
     }
 
@@ -35,7 +36,7 @@ export async function initStore() {
     notify();
 }
 
-// 儲存至雲端
+// 同步至雲端
 async function saveToCloud() {
     const username = window.CLOUD_USERNAME;
     const scriptUrl = window.CLOUD_SCRIPT_URL;
@@ -51,11 +52,16 @@ async function saveToCloud() {
     }
 }
 
+// 兼容 app.js 可能呼叫的 progress() 與 getState()
+export function progress() {
+    return state;
+}
+
 export function getState() {
     return state;
 }
 
-// 【關鍵修復】提供 srs.js 讀取單字箱號的匯出函式
+// 提供 srs.js 讀取單字箱號
 export function box(word) {
     if (!state.words[word]) return 1;
     return state.words[word].box || 1;
@@ -71,7 +77,7 @@ export function subscribe(fn) {
 
 function notify() {
     for (const fn of listeners) fn(state);
-    saveToCloud(); // 每次狀態變動即時觸發雲端儲存
+    saveToCloud();
 }
 
 // 更新單字進度與答題數據
@@ -83,7 +89,7 @@ export function recordAnswer(word, correct, level) {
     
     if (correct) {
         w.correctCount++;
-        w.box = Math.min(3, w.box + 1); // 最多到 3 (精通)
+        w.box = Math.min(3, w.box + 1);
         state.stats.totalCorrect++;
         state.stats.streak++;
         if (state.stats.streak > state.stats.bestStreak) {
@@ -91,11 +97,10 @@ export function recordAnswer(word, correct, level) {
         }
     } else {
         w.wrongCount++;
-        w.box = 1; // 答錯退回學習中
+        w.box = 1;
         state.stats.streak = 0;
     }
 
-    // 記錄今日歷史
     const today = new Date().toISOString().slice(0, 10);
     state.history[today] = (state.history[today] || 0) + 1;
 
@@ -111,6 +116,7 @@ export function resetProgress() {
     if (confirm("確定要重設所有學習進度嗎？")) {
         state = {
             level: 1,
+            placed: true,
             words: {},
             history: {},
             stats: { totalCorrect: 0, streak: 0, bestStreak: 0 }
