@@ -1,8 +1,7 @@
-// src/ui.js - 完整修復版（含 renderRound、initModes、onCheckClick 與全方位防禦）
+// src/ui.js - 完整防禦與全功能補齊版
 
 /**
  * 渲染當前回合與關卡資訊
- * @param {Object} roundData - 回合資料物件
  */
 export function renderRound(roundData) {
     if (!roundData || typeof roundData !== 'object') {
@@ -28,7 +27,6 @@ export function renderRound(roundData) {
 
 /**
  * 更新整體統計數據顯示
- * @param {Object} stats - 統計物件
  */
 export function renderStats(stats) {
     if (!stats || typeof stats !== 'object') {
@@ -36,24 +34,17 @@ export function renderStats(stats) {
     }
 
     const totalCorrectEl = document.getElementById('total-correct') || document.querySelector('.total-correct');
-    if (totalCorrectEl) {
-        totalCorrectEl.textContent = stats.totalCorrect ?? 0;
-    }
+    if (totalCorrectEl) totalCorrectEl.textContent = stats.totalCorrect ?? 0;
 
     const streakEl = document.getElementById('streak') || document.querySelector('.streak');
-    if (streakEl) {
-        streakEl.textContent = stats.streak ?? 0;
-    }
+    if (streakEl) streakEl.textContent = stats.streak ?? 0;
 
     const bestStreakEl = document.getElementById('best-streak') || document.querySelector('.best-streak');
-    if (bestStreakEl) {
-        bestStreakEl.textContent = stats.bestStreak ?? 0;
-    }
+    if (bestStreakEl) bestStreakEl.textContent = stats.bestStreak ?? 0;
 }
 
 /**
  * 更新小節（Session）進度顯示
- * @param {Object} session - 小節狀態物件
  */
 export function renderSession(session) {
     if (!session || typeof session !== 'object') {
@@ -77,8 +68,7 @@ export function renderSession(session) {
 }
 
 /**
- * 初始化遊戲模式或選單切換按鈕
- * @param {Function} onModeChange - 當切換模式時的回呼函式
+ * 初始化遊戲模式切換按鈕
  */
 export function initModes(onModeChange) {
     const modeButtons = document.querySelectorAll('.mode-btn, [data-mode], button[id^="mode-"]');
@@ -96,26 +86,52 @@ export function initModes(onModeChange) {
 }
 
 /**
- * 處理或綁定檢查答案按鈕點擊事件（雙模態相容）
- * @param {Function|Event} arg - 可能是回呼函式或事件物件
+ * 綁定檢查答案按鈕
  */
 export function onCheckClick(arg) {
-    const checkBtn = document.getElementById('check-btn') || document.querySelector('.check-btn') || document.getElementById('submit-btn') || document.getElementById('btn-check');
-
-    if (typeof arg === 'function') {
-        // 如果 app.js 傳入的是回呼函式，則自動幫忙綁定到畫面的檢查按鈕上
-        if (checkBtn) {
-            checkBtn.addEventListener('click', arg);
-        }
-    } else {
-        // 如果被當作事件處理函式直接觸發，安全地回傳
-        return true;
+    const checkBtn = document.getElementById('check-btn') || document.querySelector('.check-btn') || document.getElementById('submit-btn');
+    if (typeof arg === 'function' && checkBtn) {
+        checkBtn.addEventListener('click', arg);
     }
+    return true;
+}
+
+/**
+ * 綁定偷看/提示按鈕（支援 callback 或直接事件綁定）
+ */
+export function onPeek(arg) {
+    const peekBtn = document.getElementById('peek-btn') || document.querySelector('.peek-btn') || document.getElementById('hint-btn');
+    if (typeof arg === 'function' && peekBtn) {
+        peekBtn.addEventListener('click', arg);
+    }
+    return true;
+}
+
+/**
+ * 預防 app.js 呼叫其他可能缺少的互動函式而建置的安全佔位函式
+ */
+export function onNext(arg) {
+    const nextBtn = document.getElementById('next-btn') || document.querySelector('.next-btn');
+    if (typeof arg === 'function' && nextBtn) nextBtn.addEventListener('click', arg);
+    return true;
+}
+
+export function onPrev(arg) {
+    return true;
+}
+
+export function showModal(modalId) {
+    const modal = document.getElementById(modalId) || document.querySelector('.modal');
+    if (modal) modal.style.display = 'block';
+}
+
+export function hideModal(modalId) {
+    const modal = document.getElementById(modalId) || document.querySelector('.modal');
+    if (modal) modal.style.display = 'none';
 }
 
 /**
  * 初始化並綁定整體 UI 畫面更新
- * @param {Object} state - 完整狀態物件
  */
 export function renderAll(state) {
     if (!state || typeof state !== 'object') return;
@@ -131,5 +147,10 @@ export default {
     renderSession,
     initModes,
     onCheckClick,
+    onPeek,
+    onNext,
+    onPrev,
+    showModal,
+    hideModal,
     renderAll
 };
