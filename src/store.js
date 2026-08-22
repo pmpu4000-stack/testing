@@ -1,4 +1,4 @@
-// src/store.js - 雲端同步版狀態管理
+// src/store.js - 雲端同步與狀態管理（含 srs.js 所需的 box 匯出）
 
 let state = {
     level: 1,
@@ -53,6 +53,12 @@ async function saveToCloud() {
 
 export function getState() {
     return state;
+}
+
+// 【關鍵修復】提供 srs.js 讀取單字箱號的匯出函式
+export function box(word) {
+    if (!state.words[word]) return 1;
+    return state.words[word].box || 1;
 }
 
 export function subscribe(fn) {
