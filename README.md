@@ -54,7 +54,11 @@ since it uses ES modules. Easiest paths:
 
 ### Good to know
 - Each person's **progress is saved privately in their own browser** (`localStorage`),
-  so two kids keep separate scores. Nothing is uploaded anywhere.
+  so two kids keep separate scores by default.
+- If you enable the Google Apps Script login/sync flow, the app only uploads the
+  `spellAgent.v2` progress key for the logged-in account.
+- The frontend reads the Google Apps Script deployment URL from `src/config.js`, so
+  rotating the deployment only requires updating that single file.
 - **Audio** uses the browser's built-in text-to-speech (Chrome / Safari / Edge on
   Mac / Windows / iPad / Android all have English voices). If a device has no English
   voice, the **偷看 (peek)** and answer-reveal still show the word, so practice isn't blocked.
@@ -71,6 +75,8 @@ css/styles.css        all styles / theme tokens
 data/words2000.json   the graded word bank: [{ w: word, t: trapLetterIndices, lv: 1-5 }]
 data/meanings.json    per-word { zh: 中文, ph: phonetic, sent: example sentence } for all 2000
 src/
+  config.js           frontend sync config (Apps Script URL + allowed sync keys)
+  account-sync.js     login + per-account upload/download helpers
   levels.js           level config + spelling helpers (misspelling generator, shuffle)
   data.js             curated "featured" trap words (verified 中文 + example + mask)
   wordbank.js         loads words2000.json, merges featured data → master word list
@@ -80,6 +86,8 @@ src/
   confetti.js         celebration animation
   ui.js               all DOM rendering (the "view")
   app.js              placement → play → challenge orchestration (the "controller", entry point)
+apps-script/
+  Code.gs             Google Apps Script login + per-account sync endpoint
 ```
 
 Data → model → view → controller are separated: `ui.js` never touches the store directly,
