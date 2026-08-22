@@ -1,4 +1,4 @@
-// src/store.js - 零死角 Proxy 雙向相容版（含 levelStats 支援）
+// src/store.js - 標準直覺、絕對相容版本
 
 let state = {
     level: 1,
@@ -7,7 +7,7 @@ let state = {
     history: {},  
     stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
     session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 },
-    levelStats: {} // 各等級統計
+    levelStats: {} 
 };
 
 let listeners = [];
@@ -20,63 +20,33 @@ export function getState() {
     return state;
 }
 
-// 1. sessionState Proxy
-const sessionStateFn = function() {
+export function sessionState() {
     if (!state.session) {
         state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
     }
     return state.session;
-};
+}
 
-export const sessionState = new Proxy(sessionStateFn, {
-    apply(target, thisArg, argList) { return sessionStateFn(); },
-    get(target, prop) { return sessionStateFn()[prop]; },
-    set(target, prop, val) { sessionStateFn()[prop] = val; return true; }
-});
-
-// 2. stats Proxy
-const statsFn = function() {
+export function stats() {
     if (!state.stats) {
         state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
     }
     return state.stats;
-};
+}
 
-export const stats = new Proxy(statsFn, {
-    apply(target, thisArg, argList) { return statsFn(); },
-    get(target, prop) { return statsFn()[prop]; },
-    set(target, prop, val) { statsFn()[prop] = val; return true; }
-});
-
-// 3. 【新增】levelStats Proxy（同時支援函式呼叫與物件存取）
-const levelStatsFn = function(lv) {
+// 標準的 levelStats 函式（支援傳入等級或取得全部統計）
+export function levelStats(lv) {
     if (!state.levelStats) {
         state.levelStats = {};
     }
-    if (lv !== undefined) {
+    if (lv !== undefined && lv !== null) {
         if (!state.levelStats[lv]) {
             state.levelStats[lv] = { correct: 0, wrong: 0, total: 0 };
         }
         return state.levelStats[lv];
     }
     return state.levelStats;
-};
-
-export const levelStats = new Proxy(levelStatsFn, {
-    apply(target, thisArg, argList) {
-        return levelStatsFn(argList[0]);
-    },
-    get(target, prop) {
-        const obj = levelStatsFn();
-        if (prop in obj) return obj[prop];
-        return obj[prop];
-    },
-    set(target, prop, val) {
-        const obj = levelStatsFn();
-        obj[prop] = val;
-        return true;
-    }
-});
+}
 
 export function box(word) {
     if (!state.words[word]) return 1;
@@ -160,7 +130,6 @@ export function recordAnswer(word, correct, level) {
         state.stats.streak = 0;
     }
 
-    // 記錄等級統計
     if (level) {
         if (!state.levelStats) state.levelStats = {};
         if (!state.levelStats[level]) state.levelStats[level] = { correct: 0, wrong: 0, total: 0 };
