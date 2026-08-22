@@ -1,4 +1,4 @@
-// src/store.js - 終極完整相容與防禦版
+// src/store.js - 雙模態鐵壁防禦版：保證函式與屬性存取絕對安全
 
 let rawState = {
     level: 1,
@@ -12,18 +12,13 @@ let rawState = {
 
 function sanitizeState(obj) {
     if (!obj || typeof obj !== 'object') {
-        return {
-            level: 1,
-            placed: true,
-            words: {},
-            history: {},
-            stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
-            session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 },
-            levelStats: {}
-        };
+        obj = {};
     }
-    if (obj.level == null || isNaN(obj.level)) obj.level = 1;
-    else obj.level = Number(obj.level);
+    if (obj.level == null || isNaN(Number(obj.level))) {
+        obj.level = 1;
+    } else {
+        obj.level = Number(obj.level);
+    }
 
     if (obj.placed === undefined) obj.placed = true;
     if (!obj.words || typeof obj.words !== 'object') obj.words = {};
@@ -65,6 +60,7 @@ const state = new Proxy(rawState, {
         if (prop === 'levelStats') return target.levelStats;
         if (prop === 'words') return target.words;
         if (prop === 'history') return target.history;
+        if (prop === 'then') return undefined; // 避免 Promise 誤判
         return target[prop];
     }
 });
@@ -105,38 +101,58 @@ export function box(word) {
     return words[word].box || 1;
 }
 
-// 支援 app.js / ui.js 可能呼叫的各種回合與關卡取值函式，確保絕不回傳 null
-export function getRound() {
-    sanitizeState(state);
+// 建立「既可當函式呼叫、又可當物件讀取屬性（如 .level）」的強固存取器
+function createRobustAccessor(getterFn) {
+    const fn = function() {
+        return getterFn();
+    };
+    Object.defineProperties(fn, {
+        level: {
+            get() {
+                const obj = getterFn();
+                return obj && obj.level != null ? obj.level : 1;
+            },
+            configurable: true
+        },
+        number: {
+            get() {
+                const obj = getterFn();
+                return obj && obj.number != null ? obj.number : 1;
+            },
+            configurable: true
+        },
+        words: {
+            get() {
+                const obj = getterFn();
+                return obj && obj.words ? obj.words : [];
+            },
+            configurable: true
+        }
+    });
+    return fn;
+}
+
+const roundGetter = () => {
+    sanitizeState(rawState);
     return {
-        level: state.level,
-        number: state.level,
+        level: rawState.level,
+        number: rawState.level,
         words: [],
         index: 0,
-        ...state
+        ...rawState
     };
-}
+};
 
-export function round() {
-    return getRound();
-}
-
-export function currentRound() {
-    return getRound();
-}
+export const round = createRobustAccessor(roundGetter);
+export const currentRound = createRobustAccessor(roundGetter);
+export const getRound = createRobustAccessor(roundGetter);
 
 export function getCurrentLevel() {
-    sanitizeState(state);
-    return state.level;
+    sanitizeState(rawState);
+    return rawState.level;
 }
-
-export function getLevel() {
-    return getCurrentLevel();
-}
-
-export function level() {
-    return getCurrentLevel();
-}
+export function getLevel() { return getCurrentLevel(); }
+export function level() { return getCurrentLevel(); }
 
 export function subscribe(fn) {
     listeners.push(fn);
