@@ -1,6 +1,6 @@
-// src/store.js - 終極防護版：內含資料清洗與空值防禦
+// src/store.js - 終極防護 Proxy 版：保證任何情況下屬性絕不為 null
 
-let state = {
+let rawState = {
     level: 1,
     placed: true,
     words: {},    
@@ -10,6 +10,46 @@ let state = {
     levelStats: {} 
 };
 
+// 使用 Proxy 建立鐵壁防線：攔截所有屬性讀取，保證關鍵欄位永遠安全、絕不回傳 null
+const state = new Proxy(rawState, {
+    get(target, prop) {
+        if (prop === 'level') {
+            return (target.level != null && !isNaN(target.level)) ? target.level : 1;
+        }
+        if (prop === 'session') {
+            if (!target.session || typeof target.session !== 'object') {
+                target.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
+            }
+            return target.session;
+        }
+        if (prop === 'stats') {
+            if (!target.stats || typeof target.stats !== 'object') {
+                target.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
+            }
+            return target.stats;
+        }
+        if (prop === 'levelStats') {
+            if (!target.levelStats || typeof target.levelStats !== 'object') {
+                target.levelStats = {};
+            }
+            return target.levelStats;
+        }
+        if (prop === 'words') {
+            if (!target.words || typeof target.words !== 'object') {
+                target.words = {};
+            }
+            return target.words;
+        }
+        if (prop === 'history') {
+            if (!target.history || typeof target.history !== 'object') {
+                target.history = {};
+            }
+            return target.history;
+        }
+        return target[prop];
+    }
+});
+
 let listeners = [];
 let unsavedChanges = false;
 let syncInterval = null;
@@ -18,33 +58,28 @@ export function progress() { return state; }
 export function getState() { return state; }
 
 export function sessionState() {
-    if (!state.session) {
-        state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
-    }
     return state.session;
 }
 
 export function stats() {
-    if (!state.stats) {
-        state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
-    }
     return state.stats;
 }
 
 export function levelStats(lv) {
-    if (!state.levelStats) state.levelStats = {};
+    const lvs = state.levelStats;
     if (lv !== undefined && lv !== null) {
-        if (!state.levelStats[lv]) {
-            state.levelStats[lv] = { correct: 0, wrong: 0, total: 0 };
+        if (!lvs[lv]) {
+            lvs[lv] = { correct: 0, wrong: 0, total: 0 };
         }
-        return state.levelStats[lv];
+        return lvs[lv];
     }
-    return state.levelStats;
+    return lvs;
 }
 
 export function box(word) {
-    if (!state.words[word]) return 1;
-    return state.words[word].box || 1;
+    const words = state.words;
+    if (!words[word]) return 1;
+    return words[word].box || 1;
 }
 
 export function subscribe(fn) {
@@ -63,36 +98,30 @@ function saveToLocalStorage() {
     const username = window.CLOUD_USERNAME;
     if (!username) return;
     try {
-        localStorage.setItem(`spelling_state_${username}`, JSON.stringify(state));
+        localStorage.setItem(`spelling_state_${username}`, JSON.stringify(rawState));
     } catch (err) {
         console.error("寫入 localStorage 失敗：", err);
     }
 }
 
-// 安全合併資料的輔助函式：嚴格檢查並過濾 null，保證關鍵欄位安全
+// 資料清洗與安全合併
 function mergeStateData(target, source) {
     if (!source || typeof source !== 'object') return;
     
-    if (source.level != null) target.level = source.level;
+    if (source.level != null && !isNaN(source.level)) target.level = Number(source.level);
     if (source.placed !== undefined) target.placed = source.placed;
     if (source.words && typeof source.words === 'object') target.words = source.words;
     if (source.history && typeof source.history === 'object') target.history = source.history;
     
     if (source.stats && typeof source.stats === 'object') {
-        target.stats = Object.assign({}, target.stats, source.stats);
+        target.stats = Object.assign({ totalCorrect: 0, streak: 0, bestStreak: 0 }, source.stats);
     }
     if (source.session && typeof source.session === 'object') {
-        target.session = Object.assign({}, target.session, source.session);
+        target.session = Object.assign({ active: true, done: 0, correct: 0, wrong: 0, goal: 20 }, source.session);
     }
     if (source.levelStats && typeof source.levelStats === 'object') {
         target.levelStats = source.levelStats;
     }
-
-    // 絕對防線：確保核心屬性永遠有預設值，絕不為 null/undefined
-    if (!target.level || isNaN(target.level)) target.level = 1;
-    if (!target.session) target.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
-    if (!target.stats) target.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
-    if (!target.levelStats) target.levelStats = {};
 }
 
 // 1. 初始化
@@ -108,9 +137,9 @@ export async function initStore() {
     // 防線 A：讀取 localStorage
     try {
         const localData = localStorage.getItem(`spelling_state_${username}`);
-        if (localData) {
+        if (localData && localData !== "null" && localData !== "undefined") {
             const parsed = JSON.parse(localData);
-            mergeStateData(state, parsed);
+            mergeStateData(rawState, parsed);
             notify();
             console.log("已從瀏覽器 localStorage 安全載入本地快取！");
         }
@@ -130,7 +159,7 @@ export async function initStore() {
         const result = await response.json();
         
         if (result.status === "success" && result.progress) {
-            mergeStateData(state, result.progress);
+            mergeStateData(rawState, result.progress);
             saveToLocalStorage();
             unsavedChanges = false;
             notify();
@@ -159,7 +188,7 @@ export async function saveToCloud() {
     try {
         await fetch(scriptUrl, {
             method: "POST",
-            body: JSON.stringify({ action: "save", username: username, progress: state })
+            body: JSON.stringify({ action: "save", username: username, progress: rawState })
         });
         unsavedChanges = false;
         console.log("進度已成功同步至 Google 試算表專屬分頁！");
@@ -170,10 +199,11 @@ export async function saveToCloud() {
 
 // 3. 作答處理
 export function recordAnswer(word, correct, level) {
-    if (!state.words[word]) {
-        state.words[word] = { box: 1, correctCount: 0, wrongCount: 0 };
+    const words = state.words;
+    if (!words[word]) {
+        words[word] = { box: 1, correctCount: 0, wrongCount: 0 };
     }
-    const w = state.words[word];
+    const w = words[word];
     
     if (correct) {
         w.correctCount++;
@@ -190,19 +220,20 @@ export function recordAnswer(word, correct, level) {
     }
 
     if (level) {
-        if (!state.levelStats) state.levelStats = {};
-        if (!state.levelStats[level]) state.levelStats[level] = { correct: 0, wrong: 0, total: 0 };
-        state.levelStats[level].total++;
-        if (correct) state.levelStats[level].correct++;
-        else state.levelStats[level].wrong++;
+        const lvs = state.levelStats;
+        if (!lvs[level]) lvs[level] = { correct: 0, wrong: 0, total: 0 };
+        lvs[level].total++;
+        if (correct) lvs[level].correct++;
+        else lvs[level].wrong++;
     }
 
-    if (state.session) {
-        state.session.done = (state.session.done || 0) + 1;
-        if (correct) state.session.correct = (state.session.correct || 0) + 1;
-        else state.session.wrong = (state.session.wrong || 0) + 1;
+    const sess = state.session;
+    if (sess) {
+        sess.done = (sess.done || 0) + 1;
+        if (correct) sess.correct = (sess.correct || 0) + 1;
+        else sess.wrong = (sess.wrong || 0) + 1;
 
-        if (state.session.done > 0 && state.session.done % state.session.goal === 0) {
+        if (sess.done > 0 && sess.done % sess.goal === 0) {
             console.log("已達成小節目標，正在自動同步雲端...");
             saveToCloud();
         }
@@ -215,21 +246,20 @@ export function recordAnswer(word, correct, level) {
 }
 
 export function setLevel(lv) {
-    state.level = lv;
+    rawState.level = (lv != null && !isNaN(lv)) ? Number(lv) : 1;
     notify();
 }
 
 export function resetProgress() {
     if (confirm("確定要重設所有學習進度嗎？")) {
-        state = {
-            level: 1,
-            placed: true,
-            words: {},
-            history: {},
-            stats: { totalCorrect: 0, streak: 0, bestStreak: 0 },
-            session: { active: true, done: 0, correct: 0, wrong: 0, goal: 20 },
-            levelStats: {}
-        };
+        rawState.level = 1;
+        rawState.placed = true;
+        rawState.words = {};
+        rawState.history = {};
+        rawState.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
+        rawState.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
+        rawState.levelStats = {};
+        
         saveToLocalStorage();
         notify();
         saveToCloud();
