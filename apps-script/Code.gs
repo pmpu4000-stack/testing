@@ -1,6 +1,6 @@
 var SESSION_TTL_MS = 60 * 60 * 1000;
 var STATE_STORAGE_KEY = "spellAgent.v2";
-var SESSION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+var SESSION_CLEANUP_INTERVAL_MS = 30 * 60 * 1000;
 
 function doOptions() {
   return ContentService.createTextOutput("");
@@ -212,29 +212,31 @@ function createSessionToken_(username) {
 }
 
 function authenticateSession_(token, expectedUsername) {
+  var props = PropertiesService.getScriptProperties();
   var key = "session:" + String(token || "").trim();
-  var raw = PropertiesService.getScriptProperties().getProperty(key);
+  var raw = props.getProperty(key);
   if (!raw) return "";
 
   try {
     var session = JSON.parse(raw);
     if (!session.username || !session.expiresAt) {
-      PropertiesService.getScriptProperties().deleteProperty(key);
+      props.deleteProperty(key);
       return "";
     }
 
     if (Number(session.expiresAt) <= Date.now()) {
-      PropertiesService.getScriptProperties().deleteProperty(key);
+      props.deleteProperty(key);
       return "";
     }
 
     if (String(session.username).trim() !== String(expectedUsername || "").trim()) {
+      props.deleteProperty(key);
       return "";
     }
 
     return String(session.username).trim();
   } catch (err) {
-    PropertiesService.getScriptProperties().deleteProperty(key);
+    props.deleteProperty(key);
     return "";
   }
 }
