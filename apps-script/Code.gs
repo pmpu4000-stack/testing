@@ -1,5 +1,6 @@
 var SESSION_TTL_MS = 60 * 60 * 1000;
 var STATE_STORAGE_KEY = "spellAgent.v2";
+var SESSION_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
 
 function doOptions() {
   return ContentService.createTextOutput("");
@@ -102,9 +103,10 @@ function doPost(e) {
       message: "不支援的操作"
     });
   } catch (error) {
+    console.error(error);
     return json_({
       status: "error",
-      message: "後端錯誤：" + error.toString()
+      message: "後端錯誤，請稍後再試"
     });
   }
 }
@@ -196,7 +198,7 @@ function json_(obj) {
 }
 
 function createSessionToken_(username) {
-  cleanupExpiredSessions_();
+  cleanupExpiredSessionsIfNeeded_();
 
   var token = Utilities.getUuid();
   var expiresAt = Date.now() + SESSION_TTL_MS;
@@ -253,4 +255,15 @@ function cleanupExpiredSessions_() {
       props.deleteProperty(key);
     }
   });
+}
+
+function cleanupExpiredSessionsIfNeeded_() {
+  var props = PropertiesService.getScriptProperties();
+  var lastRun = Number(props.getProperty("meta:lastSessionCleanupAt") || 0);
+  if ((Date.now() - lastRun) < SESSION_CLEANUP_INTERVAL_MS) {
+    return;
+  }
+
+  cleanupExpiredSessions_();
+  props.setProperty("meta:lastSessionCleanupAt", String(Date.now()));
 }

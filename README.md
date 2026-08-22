@@ -57,6 +57,8 @@ since it uses ES modules. Easiest paths:
   so two kids keep separate scores by default.
 - If you enable the Google Apps Script login/sync flow, the app only uploads the
   `spellAgent.v2` progress key for the logged-in account.
+- The frontend reads the Google Apps Script deployment URL from `src/config.js`, so
+  rotating the deployment only requires updating that single file.
 - **Audio** uses the browser's built-in text-to-speech (Chrome / Safari / Edge on
   Mac / Windows / iPad / Android all have English voices). If a device has no English
   voice, the **偷看 (peek)** and answer-reveal still show the word, so practice isn't blocked.
