@@ -3,7 +3,7 @@
 // drives level-based practice, and gates progression behind challenges.
 // =====================================================================
 import { loadWordBank } from "./wordbank.js";
-import * as store from "./store.js";
+import * as store from "./store.js?v=2";
 import { nextWord } from "./srs.js";
 import * as ui from "./ui.js";
 import { burst } from "./confetti.js";
