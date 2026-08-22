@@ -7,6 +7,11 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
+<script>
+  // 先在主程式載入前清空全部 localStorage
+  localStorage.clear();
+</script>
+
 <!-- 登入驗證遮罩 -->
 <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#f5f7fa; z-index:9999; display:flex; justify-content:center; align-items:center;">
     <div style="background:white; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); width:320px; text-align:center;">
@@ -112,7 +117,6 @@ document.getElementById('login-btn').addEventListener('click', async () => {
     
     msgEl.textContent = "正在驗證中...";
     
-    // 請將下方引號內的網址換成你在 Apps Script 複製的「網頁應用程式網址」
     const scriptUrl = "https://script.google.com/macros/s/AKfycbxiWdW_Bb9nYdLTw0OKvwj7vWtKDPcLQBIEsPD0JvGLjopmYehjK0fRGY7ac0kYM1mO/exec"; 
     
     try {
@@ -124,11 +128,8 @@ document.getElementById('login-btn').addEventListener('click', async () => {
         let result = await response.json();
         
         if (result.status === "success") {
-            // 驗證成功：先清除全部 localStorage，再隱藏登入畫面遮罩
-            localStorage.clear();
             document.getElementById('login-overlay').style.display = 'none';
         } else {
-            // 驗證失敗：顯示錯誤訊息
             msgEl.textContent = result.message;
         }
     } catch (err) {
