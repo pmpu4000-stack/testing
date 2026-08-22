@@ -1,4 +1,4 @@
-// src/store.js - 零死角相容、背景非同步雲端同步版（含 stats 函式）
+// src/store.js - 零死角 Proxy 雙向相容版（同時支援函式呼叫與物件屬性存取）
 
 let state = {
     level: 1,
@@ -19,20 +19,51 @@ export function getState() {
     return state;
 }
 
-export function sessionState() {
+// 1. 讓 sessionState 具備 Proxy 防禦（同時支援函式與物件）
+const sessionStateFn = function() {
     if (!state.session) {
         state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
     }
     return state.session;
-}
+};
 
-// 【新增】提供 app.js 呼叫的 stats() 函式
-export function stats() {
+export const sessionState = new Proxy(sessionStateFn, {
+    apply(target, thisArg, argList) {
+        return sessionStateFn();
+    },
+    get(target, prop) {
+        const obj = sessionStateFn();
+        return obj[prop];
+    },
+    set(target, prop, val) {
+        const obj = sessionStateFn();
+        obj[prop] = val;
+        return true;
+    }
+});
+
+// 2. 讓 stats 具備 Proxy 防禦（徹底解決 store.stats is not a function 錯誤）
+const statsFn = function() {
     if (!state.stats) {
         state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
     }
     return state.stats;
-}
+};
+
+export const stats = new Proxy(statsFn, {
+    apply(target, thisArg, argList) {
+        return statsFn();
+    },
+    get(target, prop) {
+        const obj = statsFn();
+        return obj[prop];
+    },
+    set(target, prop, val) {
+        const obj = statsFn();
+        obj[prop] = val;
+        return true;
+    }
+});
 
 export function box(word) {
     if (!state.words[word]) return 1;
@@ -153,7 +184,7 @@ export function resetProgress() {
     }
 }
 
-// 預設匯出物件（包含 stats）
+// 預設匯出物件
 export default {
     initStore,
     progress,
