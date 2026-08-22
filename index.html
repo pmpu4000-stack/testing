@@ -7,19 +7,7 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-<!-- 登入驗證遮罩 -->
-<div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#f5f7fa; z-index:9999; display:flex; justify-content:center; align-items:center;">
-    <div style="background:white; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); width:320px; text-align:center;">
-        <h2>請先登入</h2>
-        <p style="color:#666; font-size:14px; margin-bottom:20px;">請輸入您的帳號與密碼以使用拼字小特工</p>
-        
-        <input type="text" id="login-user" placeholder="請輸入帳號" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
-        <input type="password" id="login-pass" placeholder="請輸入密碼" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
-        
-        <button id="login-btn" style="width:100%; padding:10px; background:#4f46e5; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">確認登入</button>
-        <p id="login-msg" style="color:red; font-size:13px; margin-top:10px;"></p>
-    </div>
-</div>
+
 <canvas id="fx"></canvas>
 <div class="app">
   <header>
@@ -131,6 +119,101 @@ document.getElementById('login-btn').addEventListener('click', async () => {
         msgEl.textContent = "連線失敗，請檢查網路或網址是否正確";
     }
 });
-</script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const scriptUrl = "https://script.google.com/macros/s/AKfycbxiWdW_Bb9nYdLTw0OKvwj7vWtKDPcLQBIEsPD0JvGLjopmYehjK0fRGY7ac0kYM1mO/exec";
+
+        // 1. 動態建立美觀且支援雲端同步的登入畫面遮罩
+        const loginDiv = document.createElement('div');
+        loginDiv.id = 'login-overlay';
+        loginDiv.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:#f5f7fa; z-index:99999; display:flex; justify-content:center; align-items:center;";
+        loginDiv.innerHTML = `
+            <div style="background:white; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); width:320px; text-align:center;">
+                <h2>拼字小特工登入</h2>
+                <p style="color:#666; font-size:14px; margin-bottom:20px;">進度將儲存於雲端，不留在電腦中</p>
+                <input type="text" id="login-user" placeholder="請輸入帳號" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+                <input type="password" id="login-pass" placeholder="請輸入密碼" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+                <button id="login-btn" style="width:100%; padding:10px; background:#4f46e5; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">確認登入</button>
+                <p id="login-msg" style="color:red; font-size:13px; margin-top:10px;"></p>
+            </div>
+        `;
+        document.body.appendChild(loginDiv);
+
+        // 2. 綁定登入與雲端載入事件
+        document.getElementById('login-btn').addEventListener('click', async () => {
+            const user = document.getElementById('login-user').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+            const msgEl = document.getElementById('login-msg');
+            
+            if (!user || !pass) {
+                msgEl.textContent = "請輸入帳號與密碼";
+                return;
+            }
+            
+            msgEl.textContent = "驗證並載入雲端進度中...";
+            
+            try {
+                // 發送登入驗證
+                let res = await fetch(scriptUrl, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "login", username: user, password: pass })
+                });
+                let result = await res.json();
+                
+                if (result.status === "success") {
+                    // 隱藏登入遮罩
+                    document.getElementById('login-overlay').style.display = 'none';
+                    
+                    // 開始初始化雲端工作階段
+                    initCloudSession(user);
+                } else {
+                    msgEl.textContent = result.message;
+                }
+            } catch (err) {
+                console.error(err);
+                msgEl.textContent = "連線失敗，請檢查網路";
+            }
+        });
+
+        // 3. 雲端核心運作（完全記憶體操作，不碰電腦硬碟）
+        async function initCloudSession(username) {
+            console.log(`【雲端模式】目前使用者：${username}`);
+
+            // A. 登入後立刻從雲端分頁抓取歷史進度
+            try {
+                let res = await fetch(scriptUrl, {
+                    method: "POST",
+                    body: JSON.stringify({ action: "load", username: username })
+                });
+                let data = await res.json();
+                
+                if (data.status === "success" && data.progress) {
+                    window.currentCloudProgress = data.progress;
+                    console.log("【雲端同步】已成功還原您的進度");
+                }
+            } catch (e) {
+                console.error("【雲端同步】載入失敗", e);
+            }
+
+            // B. 每 10 秒自動把進度推送到雲端分頁備份
+            setInterval(async () => {
+                const progressData = window.currentCloudProgress || {};
+
+                try {
+                    await fetch(scriptUrl, {
+                        method: "POST",
+                        body: JSON.stringify({
+                            action: "save",
+                            username: username,
+                            progress: progressData
+                        })
+                    });
+                } catch (err) {
+                    // 背景靜默略過，維持流暢
+                }
+            }, 10000);
+        }
+    });
+    </script>
 </body>
 </html>
