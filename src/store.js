@@ -5,6 +5,7 @@
 import { CATS } from "./data.js";
 
 const LS_KEY = "spellAgent.v2"; // bumped: added level progression
+export const STORAGE_KEY = LS_KEY;
 
 // Local calendar date "YYYY-M-D" (used to scope a training session to one day).
 function todayStr() {
@@ -34,20 +35,25 @@ function fresh() {
   };
 }
 
+function normalize(data) {
+  if (!data || typeof data !== "object") return fresh();
+  const base = fresh();
+  const merged = {
+    ...base, ...data,
+    box: data.box && typeof data.box === "object" ? data.box : {},
+    stat: data.stat && typeof data.stat === "object" ? data.stat : {},
+    lstat: data.lstat && typeof data.lstat === "object" ? data.lstat : {},
+    level: { ...base.level, ...(data.level || {}) },
+    session: { ...base.session, ...(data.session || {}) },
+    history: data.history && typeof data.history === "object" ? data.history : {},
+  };
+  if (merged.session.active && merged.session.date !== todayStr()) merged.session.active = false;
+  return merged;
+}
+
 function load() {
   try {
-    const d = JSON.parse(localStorage.getItem(LS_KEY));
-    if (!d) return fresh();
-    const base = fresh();
-    const merged = {
-      ...base, ...d,
-      level: { ...base.level, ...(d.level || {}) },
-      session: { ...base.session, ...(d.session || {}) },
-      history: d.history || {},
-    };
-    // a session left open from a previous day is over
-    if (merged.session.active && merged.session.date !== todayStr()) merged.session.active = false;
-    return merged;
+    return normalize(JSON.parse(localStorage.getItem(LS_KEY)));
   } catch {
     return fresh();
   }
@@ -55,6 +61,16 @@ function load() {
 
 let DB = load();
 function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(DB)); } catch { /* storage off */ } }
+
+export function exportState() {
+  return JSON.parse(JSON.stringify(DB));
+}
+
+export function importState(data) {
+  DB = normalize(data);
+  save();
+  return exportState();
+}
 
 export function box(id) { return DB.box[id] || 0; }
 export function everWrong(id) { return !!(DB.stat[id] && DB.stat[id].ew); }

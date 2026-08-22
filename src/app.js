@@ -17,6 +17,17 @@ const state = { mode: "listen", word: null, answered: false, round: null };
 
 const wordsAt = (level) => WORDS.filter((w) => w.level === level);
 
+function loginPending() {
+  const overlay = document.getElementById("login-overlay");
+  return !!overlay && overlay.style.display !== "none";
+}
+
+function hydrateFromStore() {
+  if (!WORDS.length) return;
+  if (store.progress().placed) { ui.setScreen("play"); refreshChrome(); newRound(); }
+  else startPlacement();
+}
+
 function levelInfo() {
   const prog = store.progress();
   return LEVELS.map((L) => {
@@ -165,6 +176,7 @@ ui.onPeek(() => { if (state.word) ui.peek(state.word); });
 ui.onReset(() => { if (confirm("確定要清除所有進度嗎？（會重新測程度）")) { store.reset(); startPlacement(); } });
 ui.onSummary(() => ui.toggleSummary(store.summary(WORDS)));
 ui.onPlace(() => startPlacement());
+window.addEventListener("spellagent:store-reloaded", hydrateFromStore);
 
 // ---- boot ----
 (async function boot() {
@@ -175,6 +187,6 @@ ui.onPlace(() => startPlacement());
       `<p style="color:var(--coral);font-weight:700">載入單字失敗：${e.message}<br>請用伺服器開啟（見 README）。</p>`;
     return;
   }
-  if (store.progress().placed) { ui.setScreen("play"); refreshChrome(); newRound(); }
-  else startPlacement();
+  if (loginPending()) return;
+  hydrateFromStore();
 })();
