@@ -1,11 +1,10 @@
-// src/ui.js - 完整修復與鐵壁防禦版
+// src/ui.js - 完整修復版（含 initModes 與鐵壁防禦）
 
 /**
  * 渲染當前回合與關卡資訊
  * @param {Object} roundData - 回合資料物件
  */
 export function renderRound(roundData) {
-    // 🛡️ 鐵壁防禦：確保 roundData 絕對不會是 null 或 undefined，且 level 必定存在
     if (!roundData || typeof roundData !== 'object') {
         roundData = { level: 1, number: 1, words: [], index: 0 };
     }
@@ -13,13 +12,11 @@ export function renderRound(roundData) {
         roundData.level = 1;
     }
 
-    // 1. 渲染等級顯示
     const levelDisplay = document.getElementById('level-display') || document.querySelector('.level-display') || document.getElementById('level');
     if (levelDisplay) {
         levelDisplay.textContent = `Level ${roundData.level}`;
     }
 
-    // 2. 渲染當前單字或提示（若有對應 DOM 元素）
     const wordPrompt = document.getElementById('word-prompt') || document.getElementById('prompt');
     if (wordPrompt && roundData.words && roundData.words.length > 0) {
         const currentWord = roundData.words[roundData.index || 0];
@@ -80,6 +77,27 @@ export function renderSession(session) {
 }
 
 /**
+ * 初始化遊戲模式或選單切換按鈕
+ * @param {Function} onModeChange - 當切換模式時的回呼函式
+ */
+export function initModes(onModeChange) {
+    const modeButtons = document.querySelectorAll('.mode-btn, [data-mode], button[id^="mode-"]');
+    modeButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const mode = btn.dataset.mode || btn.id.replace('mode-', '') || btn.textContent.trim();
+            
+            // 切換按鈕的 active 狀態樣式
+            modeButtons.forEach(b => b.classList.remove('active', 'selected'));
+            btn.classList.add('active', 'selected');
+
+            if (typeof onModeChange === 'function') {
+                onModeChange(mode);
+            }
+        });
+    });
+}
+
+/**
  * 初始化並綁定整體 UI 畫面更新
  * @param {Object} state - 完整狀態物件
  */
@@ -95,5 +113,6 @@ export default {
     renderRound,
     renderStats,
     renderSession,
+    initModes,
     renderAll
 };
