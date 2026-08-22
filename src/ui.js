@@ -1,4 +1,4 @@
-// src/ui.js - 完整修復版（含 initModes 與鐵壁防禦）
+// src/ui.js - 完整修復版（含 renderRound、initModes、onCheckClick 與全方位防禦）
 
 /**
  * 渲染當前回合與關卡資訊
@@ -83,10 +83,8 @@ export function renderSession(session) {
 export function initModes(onModeChange) {
     const modeButtons = document.querySelectorAll('.mode-btn, [data-mode], button[id^="mode-"]');
     modeButtons.forEach(btn => {
-        btn.addEventListener('click', (e) => {
+        btn.addEventListener('click', () => {
             const mode = btn.dataset.mode || btn.id.replace('mode-', '') || btn.textContent.trim();
-            
-            // 切換按鈕的 active 狀態樣式
             modeButtons.forEach(b => b.classList.remove('active', 'selected'));
             btn.classList.add('active', 'selected');
 
@@ -95,6 +93,24 @@ export function initModes(onModeChange) {
             }
         });
     });
+}
+
+/**
+ * 處理或綁定檢查答案按鈕點擊事件（雙模態相容）
+ * @param {Function|Event} arg - 可能是回呼函式或事件物件
+ */
+export function onCheckClick(arg) {
+    const checkBtn = document.getElementById('check-btn') || document.querySelector('.check-btn') || document.getElementById('submit-btn') || document.getElementById('btn-check');
+
+    if (typeof arg === 'function') {
+        // 如果 app.js 傳入的是回呼函式，則自動幫忙綁定到畫面的檢查按鈕上
+        if (checkBtn) {
+            checkBtn.addEventListener('click', arg);
+        }
+    } else {
+        // 如果被當作事件處理函式直接觸發，安全地回傳
+        return true;
+    }
 }
 
 /**
@@ -114,5 +130,6 @@ export default {
     renderStats,
     renderSession,
     initModes,
+    onCheckClick,
     renderAll
 };
