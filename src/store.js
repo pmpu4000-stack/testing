@@ -1,4 +1,4 @@
-// src/store.js - 終極穩定版：本地優先 + localStorage 雙重保險 + 定時背景同步
+// src/store.js - 終極防護版：內含資料清洗與空值防禦
 
 let state = {
     level: 1,
@@ -11,8 +11,8 @@ let state = {
 };
 
 let listeners = [];
-let unsavedChanges = false; // 追蹤是否有尚未同步至雲端的變更
-let syncInterval = null;    // 定時背景同步計時器
+let unsavedChanges = false;
+let syncInterval = null;
 
 export function progress() { return state; }
 export function getState() { return state; }
@@ -56,10 +56,9 @@ export function subscribe(fn) {
 function notify() {
     for (const fn of listeners) fn(state);
     unsavedChanges = true;
-    saveToLocalStorage(); // 每次狀態改變，立即寫入瀏覽器本地快取
+    saveToLocalStorage();
 }
 
-// 內部工具：將當前狀態寫入 localStorage
 function saveToLocalStorage() {
     const username = window.CLOUD_USERNAME;
     if (!username) return;
@@ -70,7 +69,33 @@ function saveToLocalStorage() {
     }
 }
 
-// 1. 初始化：優先從 localStorage 秒開，再向雲端更新
+// 安全合併資料的輔助函式：嚴格檢查並過濾 null，保證關鍵欄位安全
+function mergeStateData(target, source) {
+    if (!source || typeof source !== 'object') return;
+    
+    if (source.level != null) target.level = source.level;
+    if (source.placed !== undefined) target.placed = source.placed;
+    if (source.words && typeof source.words === 'object') target.words = source.words;
+    if (source.history && typeof source.history === 'object') target.history = source.history;
+    
+    if (source.stats && typeof source.stats === 'object') {
+        target.stats = Object.assign({}, target.stats, source.stats);
+    }
+    if (source.session && typeof source.session === 'object') {
+        target.session = Object.assign({}, target.session, source.session);
+    }
+    if (source.levelStats && typeof source.levelStats === 'object') {
+        target.levelStats = source.levelStats;
+    }
+
+    // 絕對防線：確保核心屬性永遠有預設值，絕不為 null/undefined
+    if (!target.level || isNaN(target.level)) target.level = 1;
+    if (!target.session) target.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
+    if (!target.stats) target.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
+    if (!target.levelStats) target.levelStats = {};
+}
+
+// 1. 初始化
 export async function initStore() {
     const username = window.CLOUD_USERNAME;
     const scriptUrl = window.CLOUD_SCRIPT_URL;
@@ -80,25 +105,23 @@ export async function initStore() {
         return;
     }
 
-    // 防線 A：優先讀取瀏覽器本地快取（秒開、零網路延遲）
+    // 防線 A：讀取 localStorage
     try {
         const localData = localStorage.getItem(`spelling_state_${username}`);
         if (localData) {
             const parsed = JSON.parse(localData);
-            state = Object.assign(state, parsed);
-            if (!state.session) state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
-            if (!state.stats) state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
-            if (!state.levelStats) state.levelStats = {};
+            mergeStateData(state, parsed);
             notify();
-            console.log("已從瀏覽器 localStorage 快速載入本地快取！");
+            console.log("已從瀏覽器 localStorage 安全載入本地快取！");
         }
     } catch (err) {
-        console.error("讀取 localStorage 失敗：", err);
+        console.error("讀取 localStorage 失敗，已重置狀態：", err);
+        localStorage.removeItem(`spelling_state_${username}`);
     }
 
     if (!scriptUrl) return;
 
-    // 防線 B：在背景向雲端專屬分頁請求最新進度
+    // 防線 B：向雲端同步
     try {
         const response = await fetch(scriptUrl, {
             method: "POST",
@@ -107,11 +130,8 @@ export async function initStore() {
         const result = await response.json();
         
         if (result.status === "success" && result.progress) {
-            state = Object.assign(state, result.progress);
-            if (!state.session) state.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
-            if (!state.stats) state.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
-            if (!state.levelStats) state.levelStats = {};
-            saveToLocalStorage(); // 更新本地快取
+            mergeStateData(state, result.progress);
+            saveToLocalStorage();
             unsavedChanges = false;
             notify();
             console.log("成功從雲端專屬分頁同步最新紀錄！");
@@ -120,14 +140,13 @@ export async function initStore() {
         console.warn("網路不穩或雲端載入失敗，目前安心使用本地快取運行：", err);
     }
 
-    // 啟動定時背景同步機制：每 3 分鐘自動檢查一次，若有未存檔變更則自動推送到雲端
     if (!syncInterval) {
         syncInterval = setInterval(() => {
             if (unsavedChanges) {
                 console.log("執行定時背景自動同步...");
                 saveToCloud();
             }
-        }, 3 * 60 * 1000); // 3 分鐘
+        }, 3 * 60 * 1000);
     }
 }
 
@@ -145,7 +164,7 @@ export async function saveToCloud() {
         unsavedChanges = false;
         console.log("進度已成功同步至 Google 試算表專屬分頁！");
     } catch (err) {
-        console.error("同步至雲端失敗（將於下次自動重試）：", err);
+        console.error("同步至雲端失敗：", err);
     }
 }
 
@@ -183,7 +202,6 @@ export function recordAnswer(word, correct, level) {
         if (correct) state.session.correct = (state.session.correct || 0) + 1;
         else state.session.wrong = (state.session.wrong || 0) + 1;
 
-        // 每完成一個小節（20題倍數）自動同步至雲端分頁
         if (state.session.done > 0 && state.session.done % state.session.goal === 0) {
             console.log("已達成小節目標，正在自動同步雲端...");
             saveToCloud();
@@ -193,7 +211,7 @@ export function recordAnswer(word, correct, level) {
     const today = new Date().toISOString().slice(0, 10);
     state.history[today] = (state.history[today] || 0) + 1;
 
-    notify(); // 自動觸發畫面更新與 localStorage 備份
+    notify();
 }
 
 export function setLevel(lv) {
