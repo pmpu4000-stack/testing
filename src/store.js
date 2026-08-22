@@ -1,4 +1,4 @@
-// src/store.js - 雲端同步與全相容狀態管理
+// src/store.js - 雲端同步與全相容狀態管理（支援 Default 與 Named 雙向匯出）
 
 let state = {
     level: 1,
@@ -52,7 +52,6 @@ async function saveToCloud() {
     }
 }
 
-// 兼容 app.js 可能呼叫的 progress() 與 getState()
 export function progress() {
     return state;
 }
@@ -61,7 +60,6 @@ export function getState() {
     return state;
 }
 
-// 提供 srs.js 讀取單字箱號
 export function box(word) {
     if (!state.words[word]) return 1;
     return state.words[word].box || 1;
@@ -80,7 +78,6 @@ function notify() {
     saveToCloud();
 }
 
-// 更新單字進度與答題數據
 export function recordAnswer(word, correct, level) {
     if (!state.words[word]) {
         state.words[word] = { box: 1, correctCount: 0, wrongCount: 0 };
@@ -124,3 +121,15 @@ export function resetProgress() {
         notify();
     }
 }
+
+// 【關鍵修復】同時提供 default export，完美對應 app.js 的 `store.progress()` 呼叫方式！
+export default {
+    initStore,
+    progress,
+    getState,
+    box,
+    subscribe,
+    recordAnswer,
+    setLevel,
+    resetProgress
+};
