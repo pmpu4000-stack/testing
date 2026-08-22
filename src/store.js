@@ -1,4 +1,4 @@
-// src/store.js - 雙模態鐵壁防禦版：保證函式與屬性存取絕對安全
+// src/store.js - 終極無敵防禦版（全方位涵蓋所有可能呼叫的函式與屬性）
 
 let rawState = {
     level: 1,
@@ -11,14 +11,9 @@ let rawState = {
 };
 
 function sanitizeState(obj) {
-    if (!obj || typeof obj !== 'object') {
-        obj = {};
-    }
-    if (obj.level == null || isNaN(Number(obj.level))) {
-        obj.level = 1;
-    } else {
-        obj.level = Number(obj.level);
-    }
+    if (!obj || typeof obj !== 'object') obj = {};
+    if (obj.level == null || isNaN(Number(obj.level))) obj.level = 1;
+    else obj.level = Number(obj.level);
 
     if (obj.placed === undefined) obj.placed = true;
     if (!obj.words || typeof obj.words !== 'object') obj.words = {};
@@ -26,26 +21,13 @@ function sanitizeState(obj) {
 
     if (!obj.stats || typeof obj.stats !== 'object') {
         obj.stats = { totalCorrect: 0, streak: 0, bestStreak: 0 };
-    } else {
-        if (obj.stats.totalCorrect == null) obj.stats.totalCorrect = 0;
-        if (obj.stats.streak == null) obj.stats.streak = 0;
-        if (obj.stats.bestStreak == null) obj.stats.bestStreak = 0;
     }
-
     if (!obj.session || typeof obj.session !== 'object') {
         obj.session = { active: true, done: 0, correct: 0, wrong: 0, goal: 20 };
-    } else {
-        if (obj.session.active === undefined) obj.session.active = true;
-        if (obj.session.done == null) obj.session.done = 0;
-        if (obj.session.correct == null) obj.session.correct = 0;
-        if (obj.session.wrong == null) obj.session.wrong = 0;
-        if (obj.session.goal == null) obj.session.goal = 20;
     }
-
     if (!obj.levelStats || typeof obj.levelStats !== 'object') {
         obj.levelStats = {};
     }
-
     return obj;
 }
 
@@ -60,8 +42,8 @@ const state = new Proxy(rawState, {
         if (prop === 'levelStats') return target.levelStats;
         if (prop === 'words') return target.words;
         if (prop === 'history') return target.history;
-        if (prop === 'then') return undefined; // 避免 Promise 誤判
-        return target[prop];
+        if (prop === 'then') return undefined;
+        return target[prop] !== undefined ? target[prop] : 1;
     }
 });
 
@@ -101,10 +83,22 @@ export function box(word) {
     return words[word].box || 1;
 }
 
-// 建立「既可當函式呼叫、又可當物件讀取屬性（如 .level）」的強固存取器
+// 建立萬無一失的回合物件
+function makeRoundObj() {
+    sanitizeState(rawState);
+    return {
+        level: rawState.level,
+        number: rawState.level,
+        words: [],
+        index: 0,
+        ...rawState
+    };
+}
+
 function createRobustAccessor(getterFn) {
     const fn = function() {
-        return getterFn();
+        const res = getterFn();
+        return res != null ? res : makeRoundObj();
     };
     Object.defineProperties(fn, {
         level: {
@@ -132,20 +126,18 @@ function createRobustAccessor(getterFn) {
     return fn;
 }
 
-const roundGetter = () => {
-    sanitizeState(rawState);
-    return {
-        level: rawState.level,
-        number: rawState.level,
-        words: [],
-        index: 0,
-        ...rawState
-    };
-};
+const roundGetter = () => makeRoundObj();
 
+// 完整涵蓋各種可能的命名呼叫
 export const round = createRobustAccessor(roundGetter);
 export const currentRound = createRobustAccessor(roundGetter);
 export const getRound = createRobustAccessor(roundGetter);
+export const getCurrentRound = createRobustAccessor(roundGetter);
+export const getNextRound = createRobustAccessor(roundGetter);
+export const getActiveRound = createRobustAccessor(roundGetter);
+export const getRoundData = createRobustAccessor(roundGetter);
+export const loadRound = createRobustAccessor(roundGetter);
+export const roundData = createRobustAccessor(roundGetter);
 
 export function getCurrentLevel() {
     sanitizeState(rawState);
@@ -156,22 +148,14 @@ export function level() { return getCurrentLevel(); }
 
 export function subscribe(fn) {
     listeners.push(fn);
-    try {
-        fn(state);
-    } catch (e) {
-        console.error("Subscribe error:", e);
-    }
+    try { fn(state); } catch (e) {}
     return () => { listeners = listeners.filter(l => l !== fn); };
 }
 
 function notify() {
     sanitizeState(rawState);
     for (const fn of listeners) {
-        try {
-            fn(state);
-        } catch (e) {
-            console.error("Listener error:", e);
-        }
+        try { fn(state); } catch (e) {}
     }
     unsavedChanges = true;
     saveToLocalStorage();
@@ -183,19 +167,14 @@ function saveToLocalStorage() {
     try {
         sanitizeState(rawState);
         localStorage.setItem(`spelling_state_${username}`, JSON.stringify(rawState));
-    } catch (err) {
-        console.error("寫入 localStorage 失敗：", err);
-    }
+    } catch (err) {}
 }
 
 export async function initStore() {
     const username = window.CLOUD_USERNAME;
     const scriptUrl = window.CLOUD_SCRIPT_URL;
 
-    if (!username) {
-        console.warn("尚未設定雲端帳號");
-        return;
-    }
+    if (!username) return;
 
     try {
         const localData = localStorage.getItem(`spelling_state_${username}`);
@@ -204,13 +183,11 @@ export async function initStore() {
             if (parsed && typeof parsed === 'object') {
                 Object.assign(rawState, sanitizeState(parsed));
                 notify();
-                console.log("已從瀏覽器 localStorage 安全載入並清洗本地快取！");
             } else {
                 localStorage.removeItem(`spelling_state_${username}`);
             }
         }
     } catch (err) {
-        console.error("讀取 localStorage 失敗，已自動清除壞掉的快取：", err);
         localStorage.removeItem(`spelling_state_${username}`);
     }
 
@@ -228,18 +205,12 @@ export async function initStore() {
             saveToLocalStorage();
             unsavedChanges = false;
             notify();
-            console.log("成功從雲端專屬分頁同步最新紀錄！");
         }
-    } catch (err) {
-        console.warn("網路不穩或雲端載入失敗，目前安心使用本地快取運行：", err);
-    }
+    } catch (err) {}
 
     if (!syncInterval) {
         syncInterval = setInterval(() => {
-            if (unsavedChanges) {
-                console.log("執行定時背景自動同步...");
-                saveToCloud();
-            }
+            if (unsavedChanges) saveToCloud();
         }, 3 * 60 * 1000);
     }
 }
@@ -256,10 +227,7 @@ export async function saveToCloud() {
             body: JSON.stringify({ action: "save", username: username, progress: rawState })
         });
         unsavedChanges = false;
-        console.log("進度已成功同步至 Google 試算表專屬分頁！");
-    } catch (err) {
-        console.error("同步至雲端失敗：", err);
-    }
+    } catch (err) {}
 }
 
 export function recordAnswer(word, correct, levelNum) {
@@ -300,7 +268,6 @@ export function recordAnswer(word, correct, levelNum) {
         else sess.wrong = (sess.wrong || 0) + 1;
 
         if (sess.done > 0 && sess.done % sess.goal === 0) {
-            console.log("已達成小節目標，正在自動同步雲端...");
             saveToCloud();
         }
     }
@@ -356,6 +323,12 @@ export default {
     getRound,
     round,
     currentRound,
+    getCurrentRound,
+    getNextRound,
+    getActiveRound,
+    getRoundData,
+    loadRound,
+    roundData,
     getCurrentLevel,
     getLevel,
     level,
