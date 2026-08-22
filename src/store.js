@@ -1,4 +1,4 @@
-// src/store.js - 深度自我修復與鐵壁防禦版
+// src/store.js - 終極完整相容與防禦版
 
 let rawState = {
     level: 1,
@@ -10,7 +10,6 @@ let rawState = {
     levelStats: {} 
 };
 
-// 資料強力清洗函式：保證任何欄位絕對不會是 null 或 undefined
 function sanitizeState(obj) {
     if (!obj || typeof obj !== 'object') {
         return {
@@ -55,7 +54,6 @@ function sanitizeState(obj) {
     return obj;
 }
 
-// 初始清洗
 sanitizeState(rawState);
 
 const state = new Proxy(rawState, {
@@ -107,6 +105,39 @@ export function box(word) {
     return words[word].box || 1;
 }
 
+// 支援 app.js / ui.js 可能呼叫的各種回合與關卡取值函式，確保絕不回傳 null
+export function getRound() {
+    sanitizeState(state);
+    return {
+        level: state.level,
+        number: state.level,
+        words: [],
+        index: 0,
+        ...state
+    };
+}
+
+export function round() {
+    return getRound();
+}
+
+export function currentRound() {
+    return getRound();
+}
+
+export function getCurrentLevel() {
+    sanitizeState(state);
+    return state.level;
+}
+
+export function getLevel() {
+    return getCurrentLevel();
+}
+
+export function level() {
+    return getCurrentLevel();
+}
+
 export function subscribe(fn) {
     listeners.push(fn);
     try {
@@ -141,7 +172,6 @@ function saveToLocalStorage() {
     }
 }
 
-// 1. 初始化
 export async function initStore() {
     const username = window.CLOUD_USERNAME;
     const scriptUrl = window.CLOUD_SCRIPT_URL;
@@ -151,7 +181,6 @@ export async function initStore() {
         return;
     }
 
-    // 防線 A：讀取並強力清洗 localStorage，若壞掉直接清除重建
     try {
         const localData = localStorage.getItem(`spelling_state_${username}`);
         if (localData && localData !== "null" && localData !== "undefined") {
@@ -171,7 +200,6 @@ export async function initStore() {
 
     if (!scriptUrl) return;
 
-    // 防線 B：向雲端同步
     try {
         const response = await fetch(scriptUrl, {
             method: "POST",
@@ -200,7 +228,6 @@ export async function initStore() {
     }
 }
 
-// 2. 核心雲端同步函式
 export async function saveToCloud() {
     const username = window.CLOUD_USERNAME;
     const scriptUrl = window.CLOUD_SCRIPT_URL;
@@ -219,8 +246,7 @@ export async function saveToCloud() {
     }
 }
 
-// 3. 作答處理
-export function recordAnswer(word, correct, level) {
+export function recordAnswer(word, correct, levelNum) {
     sanitizeState(state);
     const words = state.words;
     if (!words[word]) {
@@ -242,12 +268,13 @@ export function recordAnswer(word, correct, level) {
         state.stats.streak = 0;
     }
 
-    if (level) {
+    const lv = levelNum || state.level;
+    if (lv) {
         const lvs = state.levelStats;
-        if (!lvs[level]) lvs[level] = { correct: 0, wrong: 0, total: 0 };
-        lvs[level].total++;
-        if (correct) lvs[level].correct++;
-        else lvs[level].wrong++;
+        if (!lvs[lv]) lvs[lv] = { correct: 0, wrong: 0, total: 0 };
+        lvs[lv].total++;
+        if (correct) lvs[lv].correct++;
+        else lvs[lv].wrong++;
     }
 
     const sess = state.session;
@@ -310,6 +337,12 @@ export default {
     stats,
     levelStats,
     box,
+    getRound,
+    round,
+    currentRound,
+    getCurrentLevel,
+    getLevel,
+    level,
     subscribe,
     recordAnswer,
     setLevel,
