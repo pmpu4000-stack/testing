@@ -7,11 +7,6 @@
 <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-<script>
-  // 先在主程式載入前清空全部 localStorage
-  localStorage.clear();
-</script>
-
 <!-- 登入驗證遮罩 -->
 <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#f5f7fa; z-index:9999; display:flex; justify-content:center; align-items:center;">
     <div style="background:white; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); width:320px; text-align:center;">
@@ -104,39 +99,48 @@
 </div>
 
 <script type="module" src="src/app.js"></script>
-<script>
-document.getElementById('login-btn').addEventListener('click', async () => {
-    const user = document.getElementById('login-user').value.trim();
-    const pass = document.getElementById('login-pass').value.trim();
-    const msgEl = document.getElementById('login-msg');
-    
-    if (!user || !pass) {
-        msgEl.textContent = "請輸入帳號與密碼";
-        return;
+<script type="module">
+import { getSavedSession, login } from "./src/account-sync.js";
+
+const overlay = document.getElementById("login-overlay");
+const userEl = document.getElementById("login-user");
+const passEl = document.getElementById("login-pass");
+const msgEl = document.getElementById("login-msg");
+const loginBtn = document.getElementById("login-btn");
+
+async function submitLogin() {
+  const user = userEl.value.trim();
+  const pass = passEl.value;
+
+  if (!user || !pass) {
+    msgEl.textContent = "請輸入帳號與密碼";
+    return;
+  }
+
+  msgEl.textContent = "正在驗證中...";
+
+  try {
+    const result = await login(user, pass);
+    if (result.status === "success") {
+      overlay.style.display = "none";
+      window.location.reload();
+      return;
     }
-    
-    msgEl.textContent = "正在驗證中...";
-    
-    const scriptUrl = "https://script.google.com/macros/s/AKfycbxiWdW_Bb9nYdLTw0OKvwj7vWtKDPcLQBIEsPD0JvGLjopmYehjK0fRGY7ac0kYM1mO/exec"; 
-    
-    try {
-        let response = await fetch(scriptUrl, {
-            method: "POST",
-            body: JSON.stringify({ username: user, password: pass })
-        });
-        
-        let result = await response.json();
-        
-        if (result.status === "success") {
-            document.getElementById('login-overlay').style.display = 'none';
-        } else {
-            msgEl.textContent = result.message;
-        }
-    } catch (err) {
-        console.error(err);
-        msgEl.textContent = "連線失敗，請檢查網路或網址是否正確";
-    }
-});
+    msgEl.textContent = result.message || "登入失敗";
+  } catch (err) {
+    console.error(err);
+    msgEl.textContent = "連線失敗，請檢查網路或網址是否正確";
+  }
+}
+
+loginBtn.addEventListener("click", submitLogin);
+[userEl, passEl].forEach((el) => el.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") submitLogin();
+}));
+
+if (getSavedSession()) {
+  overlay.style.display = "none";
+}
 </script>
 </body>
 </html>

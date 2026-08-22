@@ -3,6 +3,7 @@
 // drives level-based practice, and gates progression behind challenges.
 // =====================================================================
 import { loadWordBank } from "./wordbank.js";
+import { downloadSyncState, getSavedSession, uploadSyncState } from "./account-sync.js";
 import * as store from "./store.js";
 import { nextWord } from "./srs.js";
 import * as ui from "./ui.js";
@@ -165,6 +166,48 @@ ui.onPeek(() => { if (state.word) ui.peek(state.word); });
 ui.onReset(() => { if (confirm("確定要清除所有進度嗎？（會重新測程度）")) { store.reset(); startPlacement(); } });
 ui.onSummary(() => ui.toggleSummary(store.summary(WORDS)));
 ui.onPlace(() => startPlacement());
+
+const uploadStat = document.querySelector(".stat.upload");
+const downloadStat = document.querySelector(".stat.download");
+
+async function syncState(action) {
+  if (!getSavedSession()) {
+    ui.note("請先登入後再同步");
+    return;
+  }
+
+  ui.note(action === "upload" ? "正在上傳紀錄…" : "正在下載紀錄…");
+
+  try {
+    const result = action === "upload" ? await uploadSyncState() : await downloadSyncState();
+    if (result.status !== "success") {
+      ui.note(result.message || "同步失敗");
+      if (/重新登入|已過期/.test(result.message || "")) window.location.reload();
+      return;
+    }
+
+    if (action === "download") {
+      ui.note("下載完成，正在重新整理…");
+      window.location.reload();
+      return;
+    }
+
+    ui.note(result.message || "上傳成功");
+  } catch (error) {
+    ui.note(error.message || "同步失敗");
+    if (/重新登入|已過期/.test(error.message || "")) window.location.reload();
+  }
+}
+
+if (uploadStat) {
+  uploadStat.style.cursor = "pointer";
+  uploadStat.onclick = () => { syncState("upload"); };
+}
+
+if (downloadStat) {
+  downloadStat.style.cursor = "pointer";
+  downloadStat.onclick = () => { syncState("download"); };
+}
 
 // ---- boot ----
 (async function boot() {
