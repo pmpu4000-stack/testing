@@ -42,24 +42,41 @@ function collectStorage() {
   return storage;
 }
 
-function applyRemoteStorage(storageMap) {
-  const storage = storageMap && typeof storageMap === "object" ? storageMap : {};
+function restoreStorage(storageMap) {
   localStorage.clear();
-  Object.entries(storage).forEach(([key, value]) => {
+  Object.entries(storageMap).forEach(([key, value]) => {
     if (typeof value === "string") localStorage.setItem(key, value);
   });
+}
 
+function applyRemoteStorage(storageMap) {
+  const storage = storageMap && typeof storageMap === "object" ? storageMap : {};
   let parsed = null;
   const rawState = storage[store.STORAGE_KEY];
   if (rawState) {
     try {
       parsed = JSON.parse(rawState);
     } catch (err) {
-      console.warn("Saved state is not valid JSON:", err);
+      throw new Error("雲端紀錄格式錯誤，未覆蓋本機資料");
     }
   }
-  store.importState(parsed);
-  window.dispatchEvent(new Event("spellagent:store-reloaded"));
+
+  const snapshot = collectStorage();
+  try {
+    restoreStorage(storage);
+    store.importState(parsed);
+    window.dispatchEvent(new Event("spellagent:store-reloaded"));
+  } catch (err) {
+    restoreStorage(snapshot);
+    let localState = null;
+    const rawLocalState = snapshot[store.STORAGE_KEY];
+    if (rawLocalState) {
+      try { localState = JSON.parse(rawLocalState); } catch { localState = null; }
+    }
+    store.importState(localState);
+    window.dispatchEvent(new Event("spellagent:store-reloaded"));
+    throw err;
+  }
 }
 
 async function postToScript(payload) {
@@ -77,7 +94,7 @@ async function postToScript(payload) {
 
 async function login() {
   const username = el.loginUser.value.trim();
-  const password = el.loginPass.value.trim();
+  const password = el.loginPass.value;
 
   if (!username || !password) {
     el.loginMsg.textContent = "請輸入帳號與密碼";
@@ -89,7 +106,7 @@ async function login() {
 
   try {
     const result = await postToScript({ action: "login", username, password });
-    auth = { username, password, sheetName: result.sheetName || "" };
+    auth = { username, sessionToken: result.sessionToken || "", sheetName: result.sheetName || "" };
     applyRemoteStorage(result.storage);
     el.loginOverlay.style.display = "none";
     el.loginMsg.textContent = "";
@@ -112,7 +129,7 @@ async function uploadState() {
     await postToScript({
       action: "uploadState",
       username: auth.username,
-      password: auth.password,
+      sessionToken: auth.sessionToken,
       storage: collectStorage(),
     });
     setStatus(`已上傳 ${auth.username} 的目前紀錄`);
@@ -129,7 +146,7 @@ async function downloadState() {
     const result = await postToScript({
       action: "downloadState",
       username: auth.username,
-      password: auth.password,
+      sessionToken: auth.sessionToken,
     });
     applyRemoteStorage(result.storage);
     setStatus(`已下載 ${auth.username} 的雲端紀錄`);

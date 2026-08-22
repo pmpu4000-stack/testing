@@ -1,6 +1,7 @@
 var LOGIN_SHEET_NAME = "使用者清單";
 var REGISTRY_SHEET_NAME = "_帳號同步";
 var USER_SHEET_PREFIX = "user_";
+var SESSION_TTL_SECONDS = 21600;
 
 function doPost(e) {
   try {
@@ -31,12 +32,13 @@ function handleLogin_(request) {
     message: "登入成功",
     username: auth.username,
     sheetName: sheet.getName(),
+    sessionToken: createSessionToken_(auth.username),
     storage: readUserStorage_(sheet),
   });
 }
 
 function handleUploadState_(request) {
-  var auth = authenticateUser_(request.username, request.password);
+  var auth = authorizeRequest_(request);
   var sheet = getOrCreateUserSheet_(auth.username);
   writeUserStorage_(sheet, auth.username, request.storage);
   return jsonResponse_({
@@ -48,7 +50,7 @@ function handleUploadState_(request) {
 }
 
 function handleDownloadState_(request) {
-  var auth = authenticateUser_(request.username, request.password);
+  var auth = authorizeRequest_(request);
   var sheet = getOrCreateUserSheet_(auth.username);
   return jsonResponse_({
     status: "success",
@@ -61,7 +63,7 @@ function handleDownloadState_(request) {
 
 function authenticateUser_(username, password) {
   var user = String(username || "").trim();
-  var pass = String(password || "").trim();
+  var pass = password == null ? "" : String(password);
   if (!user || !pass) throw new Error("請輸入帳號與密碼");
 
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(LOGIN_SHEET_NAME);
@@ -79,6 +81,52 @@ function authenticateUser_(username, password) {
     }
   }
   throw new Error("帳號或密碼錯誤");
+}
+
+function authorizeRequest_(request) {
+  if (!request || !request.sessionToken) throw new Error("登入已逾時，請重新登入");
+  return authenticateSession_(request.sessionToken, request.username);
+}
+
+function createSessionToken_(username) {
+  var user = String(username || "").trim();
+  var token = Utilities.getUuid();
+  cleanupExpiredSessions_();
+  PropertiesService.getScriptProperties().setProperty("session:" + token, JSON.stringify({
+    username: user,
+    expiresAt: Date.now() + (SESSION_TTL_SECONDS * 1000),
+  }));
+  return token;
+}
+
+function cleanupExpiredSessions_() {
+  var props = PropertiesService.getScriptProperties();
+  var all = props.getProperties();
+  Object.keys(all).forEach(function (key) {
+    if (key.indexOf("session:") !== 0) return;
+    try {
+      var session = JSON.parse(all[key]);
+      if (!session.expiresAt || Number(session.expiresAt) < Date.now()) props.deleteProperty(key);
+    } catch (err) {
+      props.deleteProperty(key);
+    }
+  });
+}
+
+function authenticateSession_(token, expectedUsername) {
+  var key = "session:" + String(token || "").trim();
+  var raw = PropertiesService.getScriptProperties().getProperty(key);
+  if (!raw) throw new Error("登入已逾時，請重新登入");
+
+  var session = JSON.parse(raw);
+  if (!session.expiresAt || Number(session.expiresAt) < Date.now()) {
+    PropertiesService.getScriptProperties().deleteProperty(key);
+    throw new Error("登入已逾時，請重新登入");
+  }
+  var username = String(session.username || "").trim();
+  var expected = String(expectedUsername || "").trim();
+  if (expected && expected !== username) throw new Error("登入資訊不符");
+  return { username: username };
 }
 
 function findCredentialColumns_(headerRow) {
@@ -174,7 +222,7 @@ function writeUserStorage_(sheet, username, storage) {
   ];
 
   keys.forEach(function (key) {
-    rows.push([key, String(normalized[key] || "")]);
+    rows.push([key, String(normalized[key] != null ? normalized[key] : "")]);
   });
 
   sheet.clearContents();
