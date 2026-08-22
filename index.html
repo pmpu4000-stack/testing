@@ -1,174 +1,136 @@
 <!doctype html>
 <html lang="zh-Hant">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>拼字小特工 · Spelling Agent</title>
-    <link rel="stylesheet" href="css/styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>拼字小特工 · Spelling Agent</title>
+<link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
-    <canvas id="fx"></canvas>
-    <div class="app">
-        <header>
-            <div class="logo">拼</div>
-            <div class="title">
-                <h1>拼字小特工 <span style="font-size:13px;color:var(--ink3)">Spelling Agent</span></h1>
-                <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
-            </div>
-            <div class="stats">
-                <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
-                <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
-                <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
-                <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
-            </div>
-        </header>
-
-        <!-- ============ PLAY SCREEN ============ -->
-        <div id="screen-play">
-            <div class="session" id="session"></div>
-            <nav class="levelbar" id="levelbar" aria-label="選擇關卡"></nav>
-            <div class="modes" id="modes" role="tablist" aria-label="練習模式"></div>
-            <main class="card" id="card">
-                <div class="prompt-row">
-                    <span class="catlabel" id="catlabel">關卡</span>
-                    <span class="modehint" id="modehint"></span>
-                </div>
-                <div class="zh" id="zh"></div>
-                <div class="sent" id="sent"></div>
-                <div class="stage" id="stage"></div>
-                <div class="feedback" id="feedback"></div>
-                <div class="actions">
-                    <button class="btn ghost" id="peekBtn" title="偷看一下答案">👀 偷看</button>
-                    <button class="btn primary" id="checkBtn">檢查 Check</button>
-                </div>
-            </main>
-            <div class="banner" id="banner"></div>
-            <section class="progress">
-                <h3><span>學習進度 Progress</span> <span style="display:flex;gap:14px">
-                    <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
-                    <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
-                    <a id="resetBtn" title="清除所有進度">重來 reset</a>
-                </span></h3>
-                <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
-                <div class="legend">
-                    <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
-                    <span title="連續答對 2 次"><i style="background:#B9E8D3"></i>練習中 <b id="n-prac" class="tnum">0</b></span>
-                    <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
-                    <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
-                </div>
-                <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
-            </section>
-            <section class="summary" id="summary" hidden></section>
-            <p class="foot">
-                🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
-                方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
-            </p>
-        </div>
-
-        <!-- ============ QUIZ SCREEN (placement / challenge) ============ -->
-        <div id="screen-quiz" hidden>
-            <main class="card quizcard">
-                <div class="quizhead" id="quizhead"></div>
-                <div class="quizprog"><i id="quizprog-bar"></i></div>
-                <div class="stage" id="quizstage"></div>
-            </main>
-        </div>
+<!-- 登入驗證遮罩 -->
+<div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#f5f7fa; z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div style="background:white; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); width:320px; text-align:center;">
+        <h2>請先登入</h2>
+        <p style="color:#666; font-size:14px; margin-bottom:20px;">請輸入您的帳號與密碼以使用拼字小特工</p>
+        
+        <input type="text" id="login-user" placeholder="請輸入帳號" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+        <input type="password" id="login-pass" placeholder="請輸入密碼" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
+        
+        <button id="login-btn" style="width:100%; padding:10px; background:#4f46e5; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">確認登入</button>
+        <p id="login-msg" style="color:red; font-size:13px; margin-top:10px;"></p>
     </div>
+</div>
+<canvas id="fx"></canvas>
+<div class="app">
+  <header>
+    <div class="logo">拼</div>
+    <div class="title">
+      <h1>拼字小特工 <span style="font-size:13px;color:var(--ink3)">Spelling Agent</span></h1>
+      <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
+    </div>
+    <div class="stats">
+      <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
+      <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
+      <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
+      <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
+    </div>
+  </header>
 
+  <!-- ============ PLAY SCREEN ============ -->
+  <div id="screen-play">
+    <div class="session" id="session"></div>
+    <nav class="levelbar" id="levelbar" aria-label="選擇關卡"></nav>
+    <div class="modes" id="modes" role="tablist" aria-label="練習模式"></div>
+
+    <main class="card" id="card">
+      <div class="prompt-row">
+        <span class="catlabel" id="catlabel">關卡</span>
+        <span class="modehint" id="modehint"></span>
+      </div>
+      <div class="zh" id="zh"></div>
+      <div class="sent" id="sent"></div>
+      <div class="stage" id="stage"></div>
+      <div class="feedback" id="feedback"></div>
+      <div class="actions">
+        <button class="btn ghost" id="peekBtn" title="偷看一下答案">👀 偷看</button>
+        <button class="btn primary" id="checkBtn">檢查 Check</button>
+      </div>
+    </main>
+
+    <div class="banner" id="banner"></div>
+
+    <section class="progress">
+      <h3><span>學習進度 Progress</span>
+        <span style="display:flex;gap:14px">
+          <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
+          <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
+          <a id="resetBtn" title="清除所有進度">重來 reset</a>
+        </span></h3>
+      <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
+      <div class="legend">
+        <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
+        <span title="連續答對 2 次"><i style="background:#B9E8D3"></i>練習中 <b id="n-prac" class="tnum">0</b></span>
+        <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
+        <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
+      </div>
+      <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
+    </section>
+
+    <section class="summary" id="summary" hidden></section>
+
+    <p class="foot">
+      🔊 需要開啟聲音才能聽發音（若沒聲音，按「偷看」會顯示單字）。進度會自動存在這台裝置。<br>
+      方法：<b>看 → 唸 → 蓋 → 寫 → 對</b>，只盯著<span style="background:var(--marker-soft);padding:0 4px;border-radius:4px">螢光色的陷阱字母</span>。加油！
+    </p>
+  </div>
+
+  <!-- ============ QUIZ SCREEN (placement / challenge) ============ -->
+  <div id="screen-quiz" hidden>
+    <main class="card quizcard">
+      <div class="quizhead" id="quizhead"></div>
+      <div class="quizprog"><i id="quizprog-bar"></i></div>
+      <div class="stage" id="quizstage"></div>
+    </main>
+  </div>
+</div>
+
+<script type="module" src="src/app.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbxiWdW_Bb9nYdLTw0OKvwj7vWtKDPcLQBIEsPD0JvGLjopmYehjK0fRGY7ac0kYM1mO/exec";
-
-        // 檢查是否為剛才登入成功的暫時狀態
-        const activeUser = sessionStorage.getItem('active_spelling_user');
-
-        if (activeUser) {
-            // 如果已有暫時登入身分，直接開始雲端同步工作階段，不顯示登入框
-            initCloudSession(activeUser);
+document.getElementById('login-btn').addEventListener('click', async () => {
+    const user = document.getElementById('login-user').value.trim();
+    const pass = document.getElementById('login-pass').value.trim();
+    const msgEl = document.getElementById('login-msg');
+    
+    if (!user || !pass) {
+        msgEl.textContent = "請輸入帳號與密碼";
+        return;
+    }
+    
+    msgEl.textContent = "正在驗證中...";
+    
+    // 請將下方引號內的網址換成你在 Apps Script 複製的「網頁應用程式網址」
+    const scriptUrl = "https://script.google.com/macros/s/AKfycbxiWdW_Bb9nYdLTw0OKvwj7vWtKDPcLQBIEsPD0JvGLjopmYehjK0fRGY7ac0kYM1mO/exec"; 
+    
+    try {
+        let response = await fetch(scriptUrl, {
+            method: "POST",
+            body: JSON.stringify({ username: user, password: pass })
+        });
+        
+        let result = await response.json();
+        
+        if (result.status === "success") {
+            // 驗證成功：隱藏登入畫面遮罩
+            document.getElementById('login-overlay').style.display = 'none';
         } else {
-            // 否則強制跳出登入遮罩
-            showLoginOverlay();
+            // 驗證失敗：顯示錯誤訊息
+            msgEl.textContent = result.message;
         }
-
-        function showLoginOverlay() {
-            const loginDiv = document.createElement('div');
-            loginDiv.id = 'login-overlay';
-            loginDiv.style.cssText = "position:fixed; top:0; left:0; width:100%; height:100%; background:#f5f7fa; z-index:99999; display:flex; justify-content:center; align-items:center;";
-            loginDiv.innerHTML = `
-                <div style="background:white; padding:30px; border-radius:12px; box-shadow:0 4px 15px rgba(0,0,0,0.1); width:320px; text-align:center;">
-                    <h2>拼字小特工登入</h2>
-                    <p style="color:#666; font-size:14px; margin-bottom:20px;">每次開啟或重整皆需重新輸入帳密</p>
-                    <input type="text" id="login-user" placeholder="請輸入帳號" style="width:100%; padding:10px; margin-bottom:12px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
-                    <input type="password" id="login-pass" placeholder="請輸入密碼" style="width:100%; padding:10px; margin-bottom:20px; border:1px solid #ddd; border-radius:6px; box-sizing:border-box;">
-                    <button id="login-btn" style="width:100%; padding:10px; background:#4f46e5; color:white; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">確認登入</button>
-                    <p id="login-msg" style="color:red; font-size:13px; margin-top:10px;"></p>
-                </div>
-            `;
-            document.body.appendChild(loginDiv);
-
-            document.getElementById('login-btn').addEventListener('click', async () => {
-                const user = document.getElementById('login-user').value.trim();
-                const pass = document.getElementById('login-pass').value.trim();
-                const msgEl = document.getElementById('login-msg');
-                
-                if (!user || !pass) {
-                    msgEl.textContent = "請輸入帳號與密碼";
-                    return;
-                }
-                
-                msgEl.textContent = "驗證中...";
-                
-                try {
-                    let res = await fetch(scriptUrl, {
-                        method: "POST",
-                        body: JSON.stringify({ action: "login", username: user, password: pass })
-                    });
-                    let result = await res.json();
-                    
-                    if (result.status === "success") {
-                        // 暫存登入身分，然後立刻重新整理讓遊戲主程式正常啟動
-                        sessionStorage.setItem('active_spelling_user', user);
-                        location.reload();
-                    } else {
-                        msgEl.textContent = result.message;
-                    }
-                } catch (err) {
-                    console.error(err);
-                    msgEl.textContent = "連線失敗，請檢查網路";
-                }
-            });
-        }
-
-        async function initCloudSession(username) {
-            console.log(`【雲端模式】目前使用者：${username}`);
-            
-            // 從雲端分頁抓取歷史進度
-            try {
-                let res = await fetch(scriptUrl, {
-                    method: "POST",
-                    body: JSON.stringify({ action: "load", username: username })
-                });
-                let data = await res.json();
-                if (data.status === "success" && data.progress) {
-                    window.currentCloudProgress = data.progress;
-                    // 如果你的遊戲原本有讀取進度的函式，可以在這裡觸發更新
-                }
-            } catch (e) {
-                console.error("載入雲端進度失敗", e);
-            }
-
-            // 每 10 秒自動同步進度至 Google 試算表專屬分頁
-            setInterval(async () => {
-                const progressData = window.currentCloudProgress || {};
-                try {
-                    await fetch(scriptUrl, {
-                        method: "POST",
-                        body: JSON.stringify({ action: "save", username: username, progress: progressData })
-                    });
-                } catch (err) {}
-            }, 10000);
-        }
-    });
-    </script>
+    } catch (err) {
+        console.error(err);
+        msgEl.textContent = "連線失敗，請檢查網路或網址是否正確";
+    }
+});
+</script>
 </body>
 </html>
