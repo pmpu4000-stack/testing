@@ -168,13 +168,22 @@ ui.onPlace(() => startPlacement());
 
 // ---- boot ----
 (async function boot() {
-  try {
-    WORDS = await loadWordBank();
-  } catch (e) {
-    document.querySelector("#stage").innerHTML =
-      `<p style="color:var(--coral);font-weight:700">載入單字失敗：${e.message}<br>請用伺服器開啟（見 README）。</p>`;
-    return;
-  }
-  if (store.progress().placed) { ui.setScreen("play"); refreshChrome(); newRound(); }
-  else startPlacement();
+    try {
+        WORDS = await loadWordBank();
+        
+        // 【關鍵修改】在這裡加上這行，等待從 Google 雲端載入該使用者的進度資料
+        if (typeof store.initStore === 'function') {
+            await store.initStore();
+        }
+
+    } catch (e) {
+        document.querySelector("#stage").innerHTML = `<p style="color:var(--coral);font-weight:700">載入單字失敗：${e.message}<br>請用伺服器開啟（見 README）。</p>`;
+        return;
+    }
+
+    if (store.progress().placed) {
+        ui.setScreen("play");
+        refreshChrome();
+        newRound();
+    } else startPlacement();
 })();
