@@ -1,4 +1,4 @@
-// src/ui.js - 完整防禦與全功能補齊版
+// src/ui.js - 完整防禦與全功能補齊版（包含 onReset）
 
 /**
  * 渲染當前回合與關卡資訊
@@ -97,7 +97,7 @@ export function onCheckClick(arg) {
 }
 
 /**
- * 綁定偷看/提示按鈕（支援 callback 或直接事件綁定）
+ * 綁定偷看/提示按鈕
  */
 export function onPeek(arg) {
     const peekBtn = document.getElementById('peek-btn') || document.querySelector('.peek-btn') || document.getElementById('hint-btn');
@@ -108,8 +108,16 @@ export function onPeek(arg) {
 }
 
 /**
- * 預防 app.js 呼叫其他可能缺少的互動函式而建置的安全佔位函式
+ * 綁定重設進度按鈕
  */
+export function onReset(arg) {
+    const resetBtn = document.getElementById('reset-btn') || document.querySelector('.reset-btn');
+    if (typeof arg === 'function' && resetBtn) {
+        resetBtn.addEventListener('click', arg);
+    }
+    return true;
+}
+
 export function onNext(arg) {
     const nextBtn = document.getElementById('next-btn') || document.querySelector('.next-btn');
     if (typeof arg === 'function' && nextBtn) nextBtn.addEventListener('click', arg);
@@ -118,6 +126,10 @@ export function onNext(arg) {
 
 export function onPrev(arg) {
     return true;
+}
+
+export function onRestart(arg) {
+    return onReset(arg);
 }
 
 export function showModal(modalId) {
@@ -148,8 +160,10 @@ export default {
     initModes,
     onCheckClick,
     onPeek,
+    onReset,
     onNext,
     onPrev,
+    onRestart,
     showModal,
     hideModal,
     renderAll
