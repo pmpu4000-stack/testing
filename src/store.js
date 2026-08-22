@@ -1,4 +1,4 @@
-// src/store.js - 雲端同步與全相容狀態管理（支援 Default 與 Named 雙向匯出）
+// src/store.js - 雲端同步與全相容狀態管理
 
 let state = {
     level: 1,
@@ -52,6 +52,7 @@ async function saveToCloud() {
     }
 }
 
+// 核心 progress 函式（同時支援具名匯出與預設物件屬性）
 export function progress() {
     return state;
 }
@@ -122,7 +123,7 @@ export function resetProgress() {
     }
 }
 
-// 【關鍵修復】同時提供 default export，完美對應 app.js 的 `store.progress()` 呼叫方式！
+// 預設匯出包裝物件，確保 app.js 呼叫 store.progress() 時絕對不會報錯
 export default {
     initStore,
     progress,
