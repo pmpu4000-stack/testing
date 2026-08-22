@@ -120,15 +120,11 @@ document.getElementById('login-btn').addEventListener('click', async () => {
         });
         
         let result = await response.json();
+        
         if (result.status === "success") {
-            // 🎯 檢查後端有沒有回傳 clearStorage，有的話就立刻清空本地紀錄
-            if (result.clearStorage) {
-                localStorage.clear();
-            }
-
-          // 驗證成功：隱藏登入畫面遮罩
+            // 驗證成功：隱藏登入畫面遮罩
             document.getElementById('login-overlay').style.display = 'none';
-            } else {
+        } else {
             // 驗證失敗：顯示錯誤訊息
             msgEl.textContent = result.message;
         }
