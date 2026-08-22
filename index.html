@@ -20,6 +20,7 @@
         <p id="login-msg" style="color:red; font-size:13px; margin-top:10px;"></p>
     </div>
 </div>
+
 <canvas id="fx"></canvas>
 <div class="app">
   <header>
@@ -67,7 +68,8 @@
           <a id="placeBtn" title="重新測驗你的程度">🎯 測程度</a>
           <a id="sumBtn" title="看學習總結與答對率">📊 總結</a>
           <a id="resetBtn" title="清除所有進度">重來 reset</a>
-        </span></h3>
+        </span>
+      </h3>
       <div class="bar" title="連續答對越多次，字就越熟練"><i class="learn" id="b-learn"></i><i class="prac" id="b-prac"></i><i class="mast" id="b-mast"></i></div>
       <div class="legend">
         <span title="答對 1 次（或最近答錯，需要再練）"><i style="background:#D9D5F2"></i>學習中 <b id="n-learn" class="tnum">0</b></span>
@@ -75,7 +77,7 @@
         <span title="連續答對 3 次，獲得 ⭐"><i style="background:var(--green)"></i>精通 <b id="n-mast" class="tnum">0</b></span>
         <span style="margin-left:auto;color:var(--ink3)">共 <b id="n-total" class="tnum">0</b> 字</span>
       </div>
-      <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」，該字也會更常出現）</p>
+      <p class="defs">熟練度定義：<b>學習中</b>＝答對 1 次 · <b>練習中</b>＝連續答對 2 次 · <b>精通</b>＝連續答對 3 次（答錯會退回「學習中」）</p>
     </section>
 
     <section class="summary" id="summary" hidden></section>
@@ -122,7 +124,8 @@ document.getElementById('login-btn').addEventListener('click', async () => {
         let result = await response.json();
         
         if (result.status === "success") {
-            // 驗證成功：隱藏登入畫面遮罩
+            // 驗證成功：先清除全部 localStorage，再隱藏登入畫面遮罩
+            localStorage.clear();
             document.getElementById('login-overlay').style.display = 'none';
         } else {
             // 驗證失敗：顯示錯誤訊息
