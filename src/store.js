@@ -1,4 +1,4 @@
-// src/store.js - 終極防護 Proxy 版：保證任何情況下屬性絕不為 null
+// src/store.js - 完整修復版：補齊 reset、sessionEnd 與極致防禦
 
 let rawState = {
     level: 1,
@@ -14,7 +14,7 @@ let rawState = {
 const state = new Proxy(rawState, {
     get(target, prop) {
         if (prop === 'level') {
-            return (target.level != null && !isNaN(target.level)) ? target.level : 1;
+            return (target.level != null && !isNaN(target.level)) ? Number(target.level) : 1;
         }
         if (prop === 'session') {
             if (!target.session || typeof target.session !== 'object') {
@@ -266,6 +266,19 @@ export function resetProgress() {
     }
 }
 
+// 補齊 app.js 所需的方法
+export function reset() {
+    resetProgress();
+}
+
+export function sessionEnd() {
+    if (state.session) {
+        state.session.active = false;
+    }
+    notify();
+    saveToCloud();
+}
+
 export default {
     initStore,
     progress,
@@ -278,5 +291,7 @@ export default {
     recordAnswer,
     setLevel,
     resetProgress,
+    reset,
+    sessionEnd,
     saveToCloud
 };
