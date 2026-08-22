@@ -8,7 +8,7 @@
 </head>
 <body>
 <script>
-  // 先在主程式載入前清空全部 localStorage
+  // 先在主程式載入前清空全部 localStorage，登入後再載回帳號紀錄
   localStorage.clear();
 </script>
 
@@ -35,13 +35,14 @@
       <p>破解英文拼字的 5 大關卡 · 每天 10 分鐘</p>
     </div>
     <div class="stats">
-      <div class="stat upload"><b id="s-upload" class="tnum">☁️</b><span>上傳紀錄</span></div>
-      <div class="stat download"><b id="s-download" class="tnum">📱</b><span>下載紀錄</span></div>
+      <div class="stat upload" id="upload-control" style="cursor:pointer;"><b id="s-upload" class="tnum">☁️</b><span>上傳紀錄</span></div>
+      <div class="stat download" id="download-control" style="cursor:pointer;"><b id="s-download" class="tnum">📱</b><span>下載紀錄</span></div>
       <div class="stat lv"><b id="s-level" class="tnum">1</b><span>等級 LV</span></div>
       <div class="stat ok"><b id="s-correct" class="tnum">0</b><span>答對字</span></div>
       <div class="stat streak"><b id="s-streak" class="tnum">0</b><span>連勝</span></div>
       <div class="stat rate"><b id="s-rate" class="tnum">0%</b><span>答對率</span></div>
     </div>
+    <div id="sync-status" style="font-size:12px; color:#4f46e5; min-height:18px; margin-top:6px;"></div>
   </header>
 
   <!-- ============ PLAY SCREEN ============ -->
@@ -104,39 +105,6 @@
 </div>
 
 <script type="module" src="src/app.js"></script>
-<script>
-document.getElementById('login-btn').addEventListener('click', async () => {
-    const user = document.getElementById('login-user').value.trim();
-    const pass = document.getElementById('login-pass').value.trim();
-    const msgEl = document.getElementById('login-msg');
-    
-    if (!user || !pass) {
-        msgEl.textContent = "請輸入帳號與密碼";
-        return;
-    }
-    
-    msgEl.textContent = "正在驗證中...";
-    
-    const scriptUrl = "https://script.google.com/macros/s/AKfycbxiWdW_Bb9nYdLTw0OKvwj7vWtKDPcLQBIEsPD0JvGLjopmYehjK0fRGY7ac0kYM1mO/exec"; 
-    
-    try {
-        let response = await fetch(scriptUrl, {
-            method: "POST",
-            body: JSON.stringify({ username: user, password: pass })
-        });
-        
-        let result = await response.json();
-        
-        if (result.status === "success") {
-            document.getElementById('login-overlay').style.display = 'none';
-        } else {
-            msgEl.textContent = result.message;
-        }
-    } catch (err) {
-        console.error(err);
-        msgEl.textContent = "連線失敗，請檢查網路或網址是否正確";
-    }
-});
-</script>
+<script type="module" src="src/account-sync.js"></script>
 </body>
 </html>

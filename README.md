@@ -53,8 +53,8 @@ since it uses ES modules. Easiest paths:
 - **Or** run `python3 -m http.server` in the folder and open `http://localhost:8000/`.
 
 ### Good to know
-- Each person's **progress is saved privately in their own browser** (`localStorage`),
-  so two kids keep separate scores. Nothing is uploaded anywhere.
+- The app keeps progress in `localStorage`, and can now **upload / download an account's
+  saved record** through the linked Google Apps Script so the same account can continue later.
 - **Audio** uses the browser's built-in text-to-speech (Chrome / Safari / Edge on
   Mac / Windows / iPad / Android all have English voices). If a device has no English
   voice, the **偷看 (peek)** and answer-reveal still show the word, so practice isn't blocked.
@@ -70,6 +70,7 @@ index.html            page structure (play screen + quiz screen); loads css + sr
 css/styles.css        all styles / theme tokens
 data/words2000.json   the graded word bank: [{ w: word, t: trapLetterIndices, lv: 1-5 }]
 data/meanings.json    per-word { zh: 中文, ph: phonetic, sent: example sentence } for all 2000
+apps-script/Code.gs   Google Apps Script backend for login validation + per-account sheet sync
 src/
   levels.js           level config + spelling helpers (misspelling generator, shuffle)
   data.js             curated "featured" trap words (verified 中文 + example + mask)
@@ -80,6 +81,7 @@ src/
   confetti.js         celebration animation
   ui.js               all DOM rendering (the "view")
   app.js              placement → play → challenge orchestration (the "controller", entry point)
+  account-sync.js     login, upload/download buttons, and account-scoped state sync
 ```
 
 Data → model → view → controller are separated: `ui.js` never touches the store directly,
