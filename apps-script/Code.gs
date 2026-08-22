@@ -1,6 +1,6 @@
-var SESSION_TTL_MS = 60 * 60 * 1000;
-var STATE_STORAGE_KEY = "spellAgent.v2";
-var SESSION_CLEANUP_INTERVAL_MS = 30 * 60 * 1000;
+const SESSION_TTL_MS = 60 * 60 * 1000;
+const STATE_STORAGE_KEY = "spellAgent.v2";
+const SESSION_CLEANUP_INTERVAL_MS = 30 * 60 * 1000;
 
 function doOptions() {
   return ContentService.createTextOutput("");
@@ -230,7 +230,6 @@ function authenticateSession_(token, expectedUsername) {
     }
 
     if (String(session.username).trim() !== String(expectedUsername || "").trim()) {
-      props.deleteProperty(key);
       return "";
     }
 
